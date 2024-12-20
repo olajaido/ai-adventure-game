@@ -1,0 +1,144 @@
+name: Deploy AI Adventure Game
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./infra
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Terraform Init
+        run: terraform init
+        env:
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BACKEND_BUCKET }}
+
+      - name: Terraform Format
+        run: terraform fmt -check
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        if: github.event_name == 'pull_request'
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve
+
+      - name: Package Lambda Code
+        run: |
+          cd bedrock-code
+          zip -r ../lambda.zip ./*
+
+  frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: terraform
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm test
+        env:
+          CI: true
+
+      - name: Install AWS Amplify CLI
+        run: npm install -g @aws-amplify/cli
+
+      - name: Build Frontend
+        run: npm run build
+        env:
+          REACT_APP_AWS_REGION: ${{ secrets.AWS_REGION }}
+          REACT_APP_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          REACT_APP_USER_POOL_CLIENT_ID: ${{ secrets.COGNITO_CLIENT_ID }}
+          REACT_APP_LAMBDA_ENDPOINT: ${{ secrets.LAMBDA_ENDPOINT }}
+
+      - name: Deploy to Amplify
+        run: |
+          amplify configure --provider awscloudformation \
+            --region ${{ secrets.AWS_REGION }} \
+            --yes
+          amplify push --yes
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Lint JavaScript/React
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          cd infra/bedrock-code
+          pip install pylint black
+          pip install -r requirements.txt
+
+      - name: Lint Python
+        run: |
+          cd infra/bedrock-code
+          pylint *.py
+          black --check .

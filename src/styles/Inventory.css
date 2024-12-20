@@ -1,0 +1,46 @@
+.inventory {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  
+  .inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+  
+  .inventory-item {
+    background-color: #16213e;
+    padding: 1.5rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .item-icon {
+    font-size: 2rem;
+    text-align: center;
+  }
+  
+  .item-name {
+    font-weight: bold;
+    text-align: center;
+  }
+  
+  .item-description {
+    font-size: 0.9rem;
+    color: #cccccc;
+  }
+  
+  .empty-inventory {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    background-color: #16213e;
+    border-radius: 8px;
+    color: #cccccc;
+  }

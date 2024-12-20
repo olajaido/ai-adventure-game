@@ -1,0 +1,130 @@
+/* Theme colors */
+:root {
+    --primary-color: #e94560;
+    --secondary-color: #0f3460;
+    --background-color: #1a1a2e;
+    --surface-color: #16213e;
+    --text-color: #ffffff;
+    --text-secondary: #cccccc;
+  }
+  
+  .app {
+    min-height: 100vh;
+    background-color: #1a1a2e;
+    color: #ffffff;
+  }
+  
+  .nav-bar {
+    background-color: #16213e;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+  }
+  
+  .nav-link {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+  
+  .nav-link:hover {
+    background-color: #0f3460;
+  }
+  
+  /* Common styles */
+  .loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    font-size: 1.2rem;
+    color: #cccccc;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--surface-color);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--secondary-color);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color);
+  }
+  
+  /* Toast notifications */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    padding: 1rem 2rem;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  /* Button states */
+  button:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+  
+  button:active {
+    transform: scale(0.98);
+  }
+  
+  /* Accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+  
+  /* High contrast mode */
+  @media (prefers-contrast: high) {
+    :root {
+      --primary-color: #ff0040;
+      --text-color: #ffffff;
+      --text-secondary: #ffffff;
+    }
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    .nav-bar {
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+    }
+  }
