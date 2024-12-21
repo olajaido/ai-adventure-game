@@ -18,6 +18,7 @@ resource "aws_dynamodb_table" "game_data" {
   hash_key     = "userId"
   range_key    = "gameId"
 
+  # Primary attributes
   attribute {
     name = "userId"
     type = "S"
@@ -26,6 +27,25 @@ resource "aws_dynamodb_table" "game_data" {
   attribute {
     name = "gameId"
     type = "S"
+  }
+
+  # GSI attributes
+  attribute {
+    name = "type"
+    type = "S"
+  }
+
+  attribute {
+    name = "timestamp"
+    type = "S"
+  }
+
+  # Global Secondary Index for analytics
+  global_secondary_index {
+    name            = "TypeIndex"
+    hash_key        = "type"
+    range_key       = "timestamp"
+    projection_type = "ALL"
   }
 
   tags = {
@@ -184,21 +204,91 @@ resource "aws_iam_role_policy" "lambda_policy" {
 
 # Lambda Function
 resource "aws_lambda_function" "game_logic" {
-  filename      = data.archive_file.lambda_zip.output_path
-  function_name = "${var.project_name}-game-logic-${var.environment}"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "lambda_handler.handle_game_action"
-  runtime       = "python3.9"
-  timeout       = 30
-  memory_size   = 256
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "${var.project_name}-game-logic-${var.environment}"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "lambda_handler.handle_game_action"
+  runtime         = "python3.9"
+  timeout         = 30
+  memory_size     = 256
+  publish         = true  # Enable versioning
 
   environment {
     variables = {
-      GAME_TABLE = aws_dynamodb_table.game_data.name
+      GAME_TABLE   = aws_dynamodb_table.game_data.name
+      CONTENT_PATH = "/var/task/game_content.json"
+      ENVIRONMENT  = var.environment
     }
+  }
+
+  tracing_config {
+    mode = "Active"  # Enable X-Ray tracing
+  }
+
+  layers = [aws_lambda_layer_version.dependencies.arn]  # Add dependencies layer
+
+  vpc_config {
+    subnet_ids         = var.subnet_ids
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_policy,
+    aws_cloudwatch_log_group.lambda_logs
+  ]
+}
+
+# CloudWatch Log Group for Lambda
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  name              = "/aws/lambda/${var.project_name}-game-logic-${var.environment}"
+  retention_in_days = 14
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
   }
 }
 
+# Lambda Layer for dependencies
+resource "aws_lambda_layer_version" "dependencies" {
+  filename            = "lambda_layer.zip"
+  layer_name          = "${var.project_name}-dependencies"
+  compatible_runtimes = ["python3.9"]
+  
+  description = "Dependencies for game logic lambda function"
+}
+
+# Security Group for Lambda
+resource "aws_security_group" "lambda_sg" {
+  name        = "${var.project_name}-lambda-sg-${var.environment}"
+  description = "Security group for game logic lambda function"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# Alias for Lambda function
+resource "aws_lambda_alias" "game_logic" {
+  name             = var.environment
+  description      = "Environment alias for game logic function"
+  function_name    = aws_lambda_function.game_logic.function_name
+  function_version = "$LATEST"
+}
 # Lambda ZIP file
 data "archive_file" "lambda_zip" {
   type        = "zip"
