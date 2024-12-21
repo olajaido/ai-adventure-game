@@ -16,15 +16,6 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
-variable "vpc_id" {
-  description = "VPC ID for Lambda function"
-  type        = string
-}
-
-variable "subnet_ids" {
-  description = "List of subnet IDs for Lambda function"
-  type        = list(string)
-}
 
 # Add to your existing variables
 variable "lambda_timeout" {

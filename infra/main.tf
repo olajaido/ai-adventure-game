@@ -53,6 +53,42 @@ resource "aws_dynamodb_table" "game_data" {
     Project     = var.project_name
   }
 }
+resource "aws_amplify_app" "game_app" {
+  name = "${var.project_name}-${var.environment}"
+  
+  # Platform = Web Compute
+  platform = "WEB_COMPUTE"
+
+  # Build settings
+  build_spec = file("${path.module}/../amplify.yml")
+  enable_branch_auto_build = true
+
+  # Environment variables
+  environment_variables = {
+    ENV = var.environment
+    _CUSTOM_IMAGE = "public.ecr.aws/docker/library/node:18"
+  }
+
+  # Custom rules
+  custom_rule {
+    source = "/<*>"
+    status = "404"
+    target = "/index.html"
+  }
+}
+
+# Add Amplify branch
+resource "aws_amplify_branch" "main" {
+  app_id      = aws_amplify_app.game_app.id
+  branch_name = "main"
+
+  framework = "React"
+  stage     = var.environment
+
+  environment_variables = {
+    REACT_APP_ENVIRONMENT = var.environment
+  }
+}
 
 # S3 Bucket for game assets
 resource "aws_s3_bucket" "game_assets" {
@@ -201,7 +237,16 @@ resource "aws_iam_role_policy" "lambda_policy" {
     ]
   })
 }
+# Add this IAM role policy attachment
+resource "aws_iam_role_policy_attachment" "lambda_policy" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
 
+resource "aws_iam_role_policy_attachment" "lambda_xray" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
 # Lambda Function
 resource "aws_lambda_function" "game_logic" {
   filename         = data.archive_file.lambda_zip.output_path
@@ -226,11 +271,6 @@ resource "aws_lambda_function" "game_logic" {
   }
 
   layers = [aws_lambda_layer_version.dependencies.arn]  # Add dependencies layer
-
-  vpc_config {
-    subnet_ids         = var.subnet_ids
-    security_group_ids = [aws_security_group.lambda_sg.id]
-  }
 
   tags = {
     Environment = var.environment
@@ -263,25 +303,6 @@ resource "aws_lambda_layer_version" "dependencies" {
   description = "Dependencies for game logic lambda function"
 }
 
-# Security Group for Lambda
-resource "aws_security_group" "lambda_sg" {
-  name        = "${var.project_name}-lambda-sg-${var.environment}"
-  description = "Security group for game logic lambda function"
-  vpc_id      = var.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Environment = var.environment
-    Project     = var.project_name
-  }
-}
-
 # Alias for Lambda function
 resource "aws_lambda_alias" "game_logic" {
   name             = var.environment
@@ -295,11 +316,19 @@ data "archive_file" "lambda_zip" {
   source_dir  = "${path.module}/bedrock-code"
   output_path = "${path.module}/lambda.zip"
 }
+# Lambda Function URL
+resource "aws_lambda_function_url" "game_logic_url" {
+  function_name      = aws_lambda_function.game_logic.function_name
+  authorization_type = "AWS_IAM"
 
-# CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${var.project_name}-game-logic-${var.environment}"
-  retention_in_days = 14
+  cors {
+    allow_credentials = true
+    allow_origins     = ["*"]
+    allow_methods     = ["*"]
+    allow_headers     = ["date", "keep-alive", "authorization"]
+    expose_headers    = ["keep-alive", "date"]
+    max_age          = 86400
+  }
 }
 
 # Outputs
@@ -312,9 +341,19 @@ output "cognito_user_pool_id" {
 }
 
 output "cognito_client_id" {
-  value = aws_cognito_user_pool_client.game_client.id
+  description = "Cognito User Pool Client ID"
+  value       = aws_cognito_user_pool_client.game_client.id
+  sensitive   = true
 }
 
 output "aws_region" {
   value = var.aws_region
+}
+
+output "amplify_app_id" {
+  value = aws_amplify_app.game_app.id
+}
+
+output "api_endpoint" {
+  value = aws_lambda_function_url.game_logic_url.url
 }
