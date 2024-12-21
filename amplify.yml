@@ -1,16 +1,36 @@
 version: 1
 frontend:
   phases:
+    # Install dependencies and setup environment
     preBuild:
       commands:
         - npm ci
+        - echo "REACT_APP_AWS_REGION=$AWS_REGION" >> .env
+        - echo "REACT_APP_USER_POOL_ID=$USER_POOL_ID" >> .env
+        - echo "REACT_APP_USER_POOL_CLIENT_ID=$USER_POOL_CLIENT_ID" >> .env
+        - echo "REACT_APP_LAMBDA_ENDPOINT=$LAMBDA_ENDPOINT" >> .env
+        - echo "REACT_APP_ENVIRONMENT=$ENV" >> .env
+
+    # Build the application
     build:
       commands:
         - npm run build
+
+  # Output configuration
   artifacts:
     baseDirectory: build
     files:
       - '**/*'
+
+  # Cache configuration for faster builds
   cache:
     paths:
       - node_modules/**/*
+      - .npm-cache/**/*
+
+  # Custom headers and redirects if needed
+  customHeaders:
+    - pattern: '**/*'
+      headers:
+        - key: 'Cache-Control'
+          value: 'max-age=0, no-cache, no-store, must-revalidate'
