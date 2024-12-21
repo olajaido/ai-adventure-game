@@ -39,7 +39,6 @@ env/
 
 # AWS Amplify
 /amplify
-aws-exports.js
 team-provider-info.json
 
 # IDE
