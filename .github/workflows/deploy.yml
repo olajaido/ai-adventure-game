@@ -23,6 +23,7 @@ jobs:
       user_pool_id: ${{ steps.terraform_output.outputs.user_pool_id }}
       client_id: ${{ steps.terraform_output.outputs.client_id }}
       lambda_endpoint: ${{ steps.terraform_output.outputs.lambda_endpoint }}
+      amplify_app_id: ${{ steps.terraform_output.outputs.amplify_app_id }}
     
     steps:
       - name: Checkout Repository
@@ -47,26 +48,59 @@ jobs:
       - name: Terraform Format
         run: terraform fmt -check
 
-      - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        if: github.event_name == 'pull_request'
-
-      - name: Terraform Apply
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve
-
+      # Package Lambda before Terraform operations
       - name: Package Lambda Code
         run: |
           cd bedrock-code
+          if [ ! -f requirements.txt ]; then
+            echo "requirements.txt not found"
+            exit 1
+          fi
+          pip install -r requirements.txt -t .
           zip -r ../lambda.zip ./*
+
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        run: |
+          terraform plan -out=tfplan -var="environment=${GITHUB_REF##*/}" || (
+            echo "Terraform plan failed"
+            exit 1
+          )
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          terraform apply -auto-approve || (
+            echo "Terraform apply failed"
+            exit 1
+          )
 
       - name: Get Terraform Outputs
         id: terraform_output
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          echo "user_pool_id=$(terraform output -raw cognito_user_pool_id)" >> $GITHUB_OUTPUT
-          echo "client_id=$(terraform output -raw cognito_client_id)" >> $GITHUB_OUTPUT
-          echo "lambda_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
+          if ! user_pool_id=$(terraform output -raw cognito_user_pool_id); then
+            echo "Failed to get user_pool_id"
+            exit 1
+          fi
+          echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
+
+          if ! client_id=$(terraform output -raw cognito_client_id); then
+            echo "Failed to get client_id"
+            exit 1
+          fi
+          echo "client_id=$client_id" >> $GITHUB_OUTPUT
+
+          if ! lambda_endpoint=$(terraform output -raw lambda_endpoint); then
+            echo "Failed to get lambda_endpoint"
+            exit 1
+          fi
+          echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
+          if ! amplify_app_id=$(terraform output -raw amplify_app_id); then
+            echo "Failed to get amplify_app_id"
+            exit 1
+          fi
+          echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
 
   frontend:
     name: Deploy Frontend
@@ -90,6 +124,14 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install Dependencies
         run: npm ci
 
@@ -100,24 +142,38 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "REACT_APP_AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
-          echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
-          echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
-          echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
-          echo "REACT_APP_ENVIRONMENT=production" >> .env
+          cat > .env << EOL
+          REACT_APP_AWS_REGION=${{ secrets.AWS_REGION }}
+          REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
+          REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
+          REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
+          REACT_APP_ENVIRONMENT=production
+          EOL
 
       - name: Install AWS Amplify CLI
         run: npm install -g @aws-amplify/cli
 
+      - name: Configure Amplify
+        run: |
+          amplify init \
+            --amplify "{\"envName\":\"${{ vars.AMPLIFY_ENV_NAME }}\"}" \
+            --yes
+          amplify pull \
+            --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+            --envName ${{ vars.AMPLIFY_ENV_NAME }} \
+            --yes
+
       - name: Build Frontend
         run: npm run build
+        env:
+          CI: true
 
       - name: Deploy to Amplify
         run: |
-          amplify configure --provider awscloudformation \
-            --region ${{ secrets.AWS_REGION }} \
-            --yes
-          amplify push --yes
+          amplify publish --yes || (
+            echo "Amplify deployment failed"
+            exit 1
+          )
 
   lint:
     name: Code Quality
@@ -133,13 +189,27 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install Dependencies
         run: npm ci
 
       - name: Lint JavaScript/React
         run: |
-          npm run lint
-          npm run format:check
+          npm run lint || (
+            echo "JavaScript/React linting failed"
+            exit 1
+          )
+          npm run format:check || (
+            echo "Code formatting check failed"
+            exit 1
+          )
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -147,14 +217,35 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
 
+      - name: Cache Python packages
+        uses: actions/cache@v3
+        id: cache-pip
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       - name: Install Python Dependencies
+        if: steps.cache-pip.outputs.cache-hit != 'true'
         run: |
           cd infra/bedrock-code
-          pip install pylint black
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "requirements.txt not found"
+            exit 1
+          fi
 
       - name: Lint Python
         run: |
           cd infra/bedrock-code
-          pylint *.py
-          black --check .
+          pylint *.py || (
+            echo "Python linting failed"
+            exit 1
+          )
+          black --check . || (
+            echo "Python formatting check failed"
+            exit 1
+          )
