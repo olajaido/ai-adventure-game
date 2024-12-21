@@ -55,17 +55,17 @@ resource "aws_dynamodb_table" "game_data" {
 }
 resource "aws_amplify_app" "game_app" {
   name = "${var.project_name}-${var.environment}"
-  
+
   # Platform = Web Compute
   platform = "WEB_COMPUTE"
 
   # Build settings
-  build_spec = file("${path.module}/../amplify.yml")
+  build_spec               = file("${path.module}/../amplify.yml")
   enable_branch_auto_build = true
 
   # Environment variables
   environment_variables = {
-    ENV = var.environment
+    ENV           = var.environment
     _CUSTOM_IMAGE = "public.ecr.aws/docker/library/node:18"
   }
 
@@ -249,14 +249,14 @@ resource "aws_iam_role_policy_attachment" "lambda_xray" {
 }
 # Lambda Function
 resource "aws_lambda_function" "game_logic" {
-  filename         = data.archive_file.lambda_zip.output_path
-  function_name    = "${var.project_name}-game-logic-${var.environment}"
-  role            = aws_iam_role.lambda_role.arn
-  handler         = "lambda_handler.handle_game_action"
-  runtime         = "python3.9"
-  timeout         = 30
-  memory_size     = 256
-  publish         = true  # Enable versioning
+  filename      = data.archive_file.lambda_zip.output_path
+  function_name = "${var.project_name}-game-logic-${var.environment}"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "lambda_handler.handle_game_action"
+  runtime       = "python3.9"
+  timeout       = 30
+  memory_size   = 256
+  publish       = true # Enable versioning
 
   environment {
     variables = {
@@ -267,10 +267,10 @@ resource "aws_lambda_function" "game_logic" {
   }
 
   tracing_config {
-    mode = "Active"  # Enable X-Ray tracing
+    mode = "Active" # Enable X-Ray tracing
   }
 
-  layers = [aws_lambda_layer_version.dependencies.arn]  # Add dependencies layer
+  layers = [aws_lambda_layer_version.dependencies.arn] # Add dependencies layer
 
   tags = {
     Environment = var.environment
@@ -299,7 +299,7 @@ resource "aws_lambda_layer_version" "dependencies" {
   filename            = "lambda_layer.zip"
   layer_name          = "${var.project_name}-dependencies"
   compatible_runtimes = ["python3.9"]
-  
+
   description = "Dependencies for game logic lambda function"
 }
 
@@ -327,7 +327,7 @@ resource "aws_lambda_function_url" "game_logic_url" {
     allow_methods     = ["*"]
     allow_headers     = ["date", "keep-alive", "authorization"]
     expose_headers    = ["keep-alive", "date"]
-    max_age          = 86400
+    max_age           = 86400
   }
 }
 
