@@ -357,3 +357,6 @@ output "amplify_app_id" {
 output "api_endpoint" {
   value = aws_lambda_function_url.game_logic_url.function_url
 }
+output "lambda_endpoint" {
+  value = aws_lambda_function_url.game_logic_url.function_url
+}
