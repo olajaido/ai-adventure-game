@@ -5,7 +5,7 @@ import { withAuthenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import awsExports from './aws-exports';
 import GameScreen from './components/GameScreen';
-import Inventory from './components/inventory';
+import Inventory from './components/Inventory';
 import Profile from './components/Profile';
 import './styles/App.css';
 
