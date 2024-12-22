@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API } from 'aws-amplify';
-import './styles/Inventory.css';
+import '../styles/Inventory.css';
 
 function Inventory() {
   const [inventory, setInventory] = useState([]);
