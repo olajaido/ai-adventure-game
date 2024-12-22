@@ -101,33 +101,61 @@ jobs:
             exit 1
           )
 
+      # - name: Get Terraform Outputs
+      #   id: terraform_output
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+      #   run: |
+      #     if ! user_pool_id=$(terraform output -raw cognito_user_pool_id); then
+      #       echo "Failed to get user_pool_id"
+      #       exit 1
+      #     fi
+      #     echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
+
+      #     if ! client_id=$(terraform output -raw cognito_client_id); then
+      #       echo "Failed to get client_id"
+      #       exit 1
+      #     fi
+      #     echo "client_id=$client_id" >> $GITHUB_OUTPUT
+
+      #     if ! lambda_endpoint=$(terraform output -raw lambda_endpoint); then
+      #       echo "Failed to get lambda_endpoint"
+      #       exit 1
+      #     fi
+      #     echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
+          
+      #     if ! amplify_app_id=$(terraform output -raw amplify_app_id); then
+      #       echo "Failed to get amplify_app_id"
+      #       exit 1
+      #     fi
+      #     echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
+
       - name: Get Terraform Outputs
         id: terraform_output
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         run: |
-          if ! user_pool_id=$(terraform output -raw cognito_user_pool_id); then
-            echo "Failed to get user_pool_id"
-            exit 1
-          fi
+          # Verbose output to diagnose issues
+          echo "Attempting to retrieve Terraform outputs..."
+          
+          # Attempt to get user pool ID with error checking
+          set -e
+          user_pool_id=$(terraform output -raw cognito_user_pool_id)
           echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
-
-          if ! client_id=$(terraform output -raw cognito_client_id); then
-            echo "Failed to get client_id"
-            exit 1
-          fi
+          
+          # Get client ID
+          client_id=$(terraform output -raw cognito_client_id)
           echo "client_id=$client_id" >> $GITHUB_OUTPUT
-
-          if ! lambda_endpoint=$(terraform output -raw lambda_endpoint); then
-            echo "Failed to get lambda_endpoint"
-            exit 1
-          fi
+          
+          # Get lambda endpoint
+          lambda_endpoint=$(terraform output -raw lambda_endpoint)
           echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
           
-          if ! amplify_app_id=$(terraform output -raw amplify_app_id); then
-            echo "Failed to get amplify_app_id"
-            exit 1
-          fi
+          # Get amplify app ID
+          amplify_app_id=$(terraform output -raw amplify_app_id)
           echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
+          
+          # Debug: show all outputs
+          echo "All Terraform Outputs:"
+          terraform output
 
   frontend:
     name: Deploy Frontend
