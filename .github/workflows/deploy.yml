@@ -133,29 +133,29 @@ jobs:
         id: terraform_output
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         run: |
-          # Verbose output to diagnose issues
-          echo "Attempting to retrieve Terraform outputs..."
-          
-          # Attempt to get user pool ID with error checking
-          set -e
-          user_pool_id=$(terraform output -raw cognito_user_pool_id)
+          # Attempt to get outputs with error handling
+          user_pool_id=$(terraform output -raw cognito_user_pool_id 2>/dev/null | tr -d '\n')
+          client_id=$(terraform output -raw cognito_client_id 2>/dev/null | tr -d '\n')
+          lambda_endpoint=$(terraform output -raw lambda_endpoint 2>/dev/null | tr -d '\n')
+          amplify_app_id=$(terraform output -raw amplify_app_id 2>/dev/null | tr -d '\n')
+
+          # Validate outputs
+          if [ -z "$user_pool_id" ]; then
+            echo "Failed to get user_pool_id"
+            terraform output
+            exit 1
+          fi
+
+          # Output to GitHub Actions
           echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
-          
-          # Get client ID
-          client_id=$(terraform output -raw cognito_client_id)
           echo "client_id=$client_id" >> $GITHUB_OUTPUT
-          
-          # Get lambda endpoint
-          lambda_endpoint=$(terraform output -raw lambda_endpoint)
           echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
-          
-          # Get amplify app ID
-          amplify_app_id=$(terraform output -raw amplify_app_id)
           echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
-          
-          # Debug: show all outputs
-          echo "All Terraform Outputs:"
-          terraform output
+
+          # Debug output
+          echo "Extracted Outputs:"
+          echo "User Pool ID: $user_pool_id"
+          echo "Lambda Endpoint: $lambda_endpoint"
 
   frontend:
     name: Deploy Frontend
