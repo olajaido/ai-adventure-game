@@ -233,6 +233,7 @@ jobs:
       #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
       #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
       #       --yes
+
       - name: Create .env file
         run: |
           cat > .env << EOL
@@ -242,23 +243,23 @@ jobs:
           REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
           REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
           EOL
-    
       - name: Install AWS Amplify CLI
         run: npm install -g @aws-amplify/cli
-    
+        
       - name: Configure Amplify
         run: |
-          amplify configure project \
-            --name "aiadventuregame" \
-            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-            --region "${{ env.AWS_REGION }}"
-    
+            amplify init \
+              --name "aiadventuregame" \
+              --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+              --yes
+        
       - name: Pull Amplify Configuration
         run: |
-          amplify pull \
-            --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
-            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-            --yes
+            amplify pull \
+              --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
+              --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+              --yes   
+     
 
       - name: Build Frontend
         run: npm run build
