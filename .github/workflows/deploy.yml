@@ -198,61 +198,77 @@ jobs:
 
       - name: Create Amplify Backend Configuration
         run: |
-          # Ensure Amplify backend directories exist
-          mkdir -p amplify/backend
-          mkdir -p amplify/.config
-
-          # Create backend meta file
-          echo '{
-            "providers": {
-              "awscloudformation": {
-                "Region": "'${{ env.AWS_REGION }}'",
-                "StackName": "amplify-aiadventuregame-dev-00000",
-                "EnvironmentName": "dev"
+            # Ensure Amplify backend directories exist
+            mkdir -p amplify/backend
+            mkdir -p amplify/.config
+        
+            # Create backend meta file
+            echo '{
+              "providers": {
+                "awscloudformation": {
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "StackName": "amplify-aiadventuregame-dev-00000",
+                  "EnvironmentName": "dev"
+                }
+              },
+              "projectName": "aiadventuregame"
+            }' > amplify/backend/amplify-meta.json
+        
+            # Create team-provider-info.json
+            echo '{
+              "dev": {
+                "awscloudformation": {
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "AppId": "${{ needs.terraform.outputs.amplify_app_id }}",
+                  "EnvironmentName": "dev"
+                }
               }
-            },
-            "projectName": "aiadventuregame"
-          }' > amplify/backend/amplify-meta.json
-
-          # Create project configuration
-          echo '{
-            "projectName": "aiadventuregame",
-            "version": "3.1",
-            "frontend": "javascript",
-            "javascript": {
-              "framework": "react",
-              "config": {
-                "SourceDir": "src",
-                "DistributionDir": "build",
-                "BuildCommand": "npm run-script build",
-                "StartCommand": "npm run-script start"
-              }
-            },
-            "providers": ["awscloudformation"]
-          }' > amplify/.config/project-config.json
-
-          # Create local env info
-          echo '{
-            "projectPath": "'$(pwd)'",
-            "defaultEditor": "vscode",
-            "envName": "dev"
-          }' > amplify/.config/local-env-info.json
+            }' > amplify/team-provider-info.json
+        
+            # Create project configuration
+            echo '{
+              "projectName": "aiadventuregame",
+              "version": "3.1",
+              "frontend": "javascript",
+              "javascript": {
+                "framework": "react",
+                "config": {
+                  "SourceDir": "src",
+                  "DistributionDir": "build",
+                  "BuildCommand": "npm run-script build",
+                  "StartCommand": "npm run-script start"
+                }
+              },
+              "providers": ["awscloudformation"]
+            }' > amplify/.config/project-config.json
+        
+            # Create local env info
+            echo '{
+              "projectPath": "'$(pwd)'",
+              "defaultEditor": "vscode",
+              "envName": "dev"
+            }' > amplify/.config/local-env-info.json
 
       - name: Initialize Amplify
         run: |
-          # Try to pull the environment first
-          amplify pull \
-            --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-            --envName dev \
-            --yes || echo "Pull failed"
-
-          # Initialize Amplify if needed
-          amplify init \
-            --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-            --envName dev \
-            --yes \
-            --frontend javascript \
-            --framework react
+            # Verify Amplify CLI version
+            amplify --version
+        
+            # Try to pull the environment first
+            amplify pull \
+              --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+              --envName dev \
+              --yes || echo "Pull failed"
+        
+            # Force initialize Amplify
+            amplify init \
+              --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+              --envName dev \
+              --yes \
+              --frontend javascript \
+              --framework react \
+              --providersFile ./amplify/team-provider-info.json \
+              --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}'
 
       - name: Fix Component File Names
         run: |
@@ -272,25 +288,28 @@ jobs:
 
       - name: Deploy to Amplify
         run: |
-          # Verify backend configuration
-          echo "Amplify backend directory contents:"
-          ls -la amplify/backend
-
-          # Additional debugging
-          cat amplify/backend/amplify-meta.json
-
-          # Push and publish
-          amplify push --yes
-          amplify publish --yes || (
-            echo "Amplify deployment failed"
-            echo "Project config:"
-            cat amplify/.config/project-config.json
-            echo "Local env info:"
-            cat amplify/.config/local-env-info.json
-            echo "Backend meta:"
-            cat amplify/backend/amplify-meta.json
-            exit 1
-          )      
+            # Additional debugging
+            echo "Amplify App ID: ${{ needs.terraform.outputs.amplify_app_id }}"
+            echo "Environment Name: dev"
+        
+            # Verify backend configuration
+            echo "Amplify backend directory contents:"
+            ls -la amplify/backend
+        
+            # Push and publish
+            amplify push --yes
+            amplify publish --yes || (
+              echo "Amplify deployment failed"
+              echo "Project config:"
+              cat amplify/.config/project-config.json
+              echo "Local env info:"
+              cat amplify/.config/local-env-info.json
+              echo "Team provider info:"
+              cat amplify/team-provider-info.json
+              echo "Backend meta:"
+              cat amplify/backend/amplify-meta.json
+              exit 1
+            )    
   # frontend:
   #     name: Deploy Frontend
   #     runs-on: ubuntu-latest
