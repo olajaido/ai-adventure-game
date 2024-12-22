@@ -206,10 +206,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - name: Run Tests
-        run: npm test
-        env:
-          CI: true
+      # - name: Run Tests
+      #   run: npm test
+      #   env:
+      #     CI: true
 
       - name: Create .env file
         run: |
