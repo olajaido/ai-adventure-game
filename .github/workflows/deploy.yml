@@ -248,19 +248,18 @@ jobs:
         
       - name: Configure Amplify
         run: |
-            amplify init \
-              --name "aiadventuregame" \
-              --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-              --yes
-        
-      - name: Pull Amplify Configuration
-        run: |
-            amplify pull \
-              --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
-              --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-              --yes   
-     
-
+          amplify init \
+            --name "aiadventuregame" \
+            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+            --yes
+          amplify pull \
+            --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
+            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+            --yes
+        env:
+          AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
+          AWS_REGION: ${{ env.AWS_REGION }}  
+          AMPLIFY_ENV_NAME: ${{ env.AMPLIFY_ENV_NAME }}
       - name: Build Frontend
         run: npm run build
         env:
