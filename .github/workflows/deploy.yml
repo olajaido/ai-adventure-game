@@ -171,13 +171,21 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
-      - name: Ensure package-lock.json exists
+      
+      - name: Prepare npm cache
         run: |
-            if [ ! -f package-lock.json ]; then
-              echo "Generating package-lock.json..."
-              npm install
-            fi 
+          # Clear npm cache
+          npm cache clean --force
+          
+          # Remove existing node_modules and package-lock.json if they exist
+          rm -rf node_modules package-lock.json
+          
+          # Generate package-lock.json
+          npm install
+          
+          # Verify file creation
+          ls -la
+          cat package-lock.json || echo "package-lock.json not created"
       
       - name: Install Dependencies
         run: |
@@ -197,9 +205,6 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-
-      - name: Install Dependencies
-        run: npm ci
 
       - name: Run Tests
         run: npm test
