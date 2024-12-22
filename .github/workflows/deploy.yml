@@ -1,5 +1,12 @@
 name: Deploy AI Adventure Game
 
+env:
+  AWS_REGION: eu-west-2
+  AWS_ROLE_ARN: arn:aws:iam::436549840164:role/github_action_role
+  AWS_BACKEND_BUCKET: aws-demo-game-terraform-state
+  AMPLIFY_ENV_NAME: dev
+  TF_VERSION: "1.5.0"
+
 on:
   push:
     branches:
@@ -32,18 +39,18 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: "1.5.0"
+          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Init
         run: terraform init
         env:
-          AWS_BUCKET_NAME: ${{ secrets.AWS_BACKEND_BUCKET }}
+          AWS_BUCKET_NAME: ${{ env.AWS_BACKEND_BUCKET }}
 
       - name: Terraform Format
         run: terraform fmt -check
@@ -96,6 +103,7 @@ jobs:
             exit 1
           fi
           echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
+          
           if ! amplify_app_id=$(terraform output -raw amplify_app_id); then
             echo "Failed to get amplify_app_id"
             exit 1
@@ -121,8 +129,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Cache node modules
         uses: actions/cache@v3
@@ -143,11 +151,11 @@ jobs:
       - name: Create .env file
         run: |
           cat > .env << EOL
-          REACT_APP_AWS_REGION=${{ secrets.AWS_REGION }}
+          REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
           REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
           REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
           REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
-          REACT_APP_ENVIRONMENT=production
+          REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
           EOL
 
       - name: Install AWS Amplify CLI
@@ -156,11 +164,11 @@ jobs:
       - name: Configure Amplify
         run: |
           amplify init \
-            --amplify "{\"envName\":\"${{ vars.AMPLIFY_ENV_NAME }}\"}" \
+            --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
             --yes
           amplify pull \
             --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-            --envName ${{ vars.AMPLIFY_ENV_NAME }} \
+            --envName ${{ env.AMPLIFY_ENV_NAME }} \
             --yes
 
       - name: Build Frontend
