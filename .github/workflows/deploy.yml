@@ -196,76 +196,64 @@ jobs:
             echo "Environment file contents:"
             cat .env
 
-        # - name: Configure Amplify
-        #   run: |
-        #     amplify init \
-        #       --app ${{ needs.terraform.outputs.amplify_app_id }} \
-        #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
-        #       --yes \
-        #       --provider "awscloudformation"
-
-        #     amplify pull \
-        #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-        #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
-        #       --yes
-
-        # - name: Build Frontend
-        #   run: |
-        #     npm run build
-        #   env:
-        #     CI: true
-        #     REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
-        #     REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
-        #     REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
-        #     REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
-        #     REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
-
         - name: Configure Amplify
           run: |
-            amplify configure --provider "awscloudformation" \
-              --region ${{ env.AWS_REGION }} \
-              --yes \
-              --no-profile
-            
-            # Create amplify.json
+            # Create necessary Amplify configuration directories
+            mkdir -p amplify/.config
+
+            # Create project-config.json
             echo '{
               "projectName": "aiadventuregame",
-              "envName": "${{ env.AMPLIFY_ENV_NAME }}",
-              "defaultEditor": "vscode",
-              "frontend": {
-                "javascript": {
-                  "framework": "react",
-                  "config": {
-                    "SourceDir": "src",
-                    "DistributionDir": "build",
-                    "BuildCommand": "npm run build",
-                    "StartCommand": "npm run start"
-                  }
+              "version": "3.1",
+              "frontend": "javascript",
+              "javascript": {
+                "framework": "react",
+                "config": {
+                  "SourceDir": "src",
+                  "DistributionDir": "build",
+                  "BuildCommand": "npm run-script build",
+                  "StartCommand": "npm run-script start"
                 }
-              }
-            }' > amplify.json
-            
+              },
+              "providers": ["awscloudformation"]
+            }' > amplify/.config/project-config.json
+
+            # Create local-env-info.json
+            echo '{
+              "projectPath": "'$(pwd)'",
+              "defaultEditor": "vscode",
+              "envName": "'${AMPLIFY_ENV_NAME}'"
+            }' > amplify/.config/local-env-info.json
+
             # Initialize Amplify
             amplify init \
-              --projectName "aiadventuregame" \
-              --frontend "javascript" \
-              --framework "react" \
-              --srcDir "src" \
-              --distDir "build" \
-              --envName ${{ env.AMPLIFY_ENV_NAME }} \
-              --yes
-            
-            # Pull existing environment
-            amplify pull \
               --appId ${{ needs.terraform.outputs.amplify_app_id }} \
               --envName ${{ env.AMPLIFY_ENV_NAME }} \
-              --frontend "javascript" \
-              --yes
+              --yes \
+              --frontend javascript \
+              --framework react \
+              --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}'
+
+        - name: Build Frontend
+          run: |
+            npm run build
+          env:
+            CI: true
+            REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
+            REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
+            REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
+            REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
+            REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
+
         - name: Deploy to Amplify
-          run: amplify publish --yes || (
-                echo "Amplify deployment failed"
-                exit 1
-              )
+          run: |
+            amplify push --yes
+            amplify publish --yes || (
+              echo "Amplify deployment failed"
+              cat amplify/.config/project-config.json
+              cat amplify/.config/local-env-info.json
+              exit 1
+            )
                     
 
   # frontend:
