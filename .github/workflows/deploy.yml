@@ -178,8 +178,11 @@ jobs:
               echo "Generating package-lock.json..."
               npm install
             fi 
+      
       - name: Install Dependencies
-        run: npm ci    
+        run: |
+          npm install
+          npm install -D typescript @types/react @types/react-dom    
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
