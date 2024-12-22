@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Auth } from 'aws-amplify/auth';
+import { Auth } from 'aws-amplify';
 import { generateClient } from 'aws-amplify/api';
 import '../styles/Profile.css';
 
