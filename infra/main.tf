@@ -80,13 +80,13 @@ resource "aws_amplify_app" "game_app" {
 # Add Amplify branch
 resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.game_app.id
-  branch_name = "main"
+  branch_name = "dev"
 
   framework = "React"
-  stage     = var.environment
+  stage     = "DEVELOPMENT"
 
   environment_variables = {
-    REACT_APP_ENVIRONMENT = var.environment
+    REACT_APP_ENVIRONMENT = "DEVELOPMENT"
   }
 }
 
