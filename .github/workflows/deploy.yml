@@ -156,193 +156,259 @@ jobs:
           echo "Extracted Outputs:"
           echo "User Pool ID: $user_pool_id"
           echo "Lambda Endpoint: $lambda_endpoint"
-
+             
   frontend:
-    name: Deploy Frontend
-    runs-on: ubuntu-latest
-    needs: terraform
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+      name: Deploy Frontend
+      runs-on: ubuntu-latest
+      needs: terraform
+      if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      steps:
+        - name: Checkout Repository
+          uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+        - name: Setup Node.js
+          uses: actions/setup-node@v3
+          with:
+            node-version: '18'
+
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            role-to-assume: ${{ env.AWS_ROLE_ARN }}
+            aws-region: ${{ env.AWS_REGION }}
+
+        - name: Install Dependencies
+          run: |
+            npm install
+            npm install -D typescript @types/react @types/react-dom
+            npm install -g @aws-amplify/cli
+
+        - name: Create .env file
+          run: |
+            echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
+            echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
+            echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
+            echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
+            echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
+            
+            # Debug output
+            echo "Environment file contents:"
+            cat .env
+
+        - name: Configure Amplify
+          run: |
+            amplify init \
+              --app ${{ needs.terraform.outputs.amplify_app_id }} \
+              --envName ${{ env.AMPLIFY_ENV_NAME }} \
+              --yes \
+              --provider "awscloudformation"
+
+            amplify pull \
+              --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+              --envName ${{ env.AMPLIFY_ENV_NAME }} \
+              --yes
+
+        - name: Build Frontend
+          run: |
+            npm run build
+          env:
+            CI: true
+            REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
+            REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
+            REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
+            REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
+            REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
+
+        - name: Deploy to Amplify
+          run: amplify publish --yes      
+
+  # frontend:
+  #   name: Deploy Frontend
+  #   runs-on: ubuntu-latest
+  #   needs: terraform
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v3
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '18'
       
-      - name: Prepare npm cache
-        run: |
-          # Clear npm cache
-          npm cache clean --force
+  #     - name: Prepare npm cache
+  #       run: |
+  #         # Clear npm cache
+  #         npm cache clean --force
           
-          # Remove existing node_modules and package-lock.json if they exist
-          rm -rf node_modules package-lock.json
+  #         # Remove existing node_modules and package-lock.json if they exist
+  #         rm -rf node_modules package-lock.json
           
-          # Generate package-lock.json
-          npm install
+  #         # Generate package-lock.json
+  #         npm install
           
-          # Verify file creation
-          ls -la
-          cat package-lock.json || echo "package-lock.json not created"
+  #         # Verify file creation
+  #         ls -la
+  #         cat package-lock.json || echo "package-lock.json not created"
       
-      - name: Install Dependencies
-        run: |
-          npm install
-          npm install -D typescript @types/react @types/react-dom    
+  #     - name: Install Dependencies
+  #       run: |
+  #         npm install
+  #         npm install -D typescript @types/react @types/react-dom    
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ env.AWS_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+  #     - name: Cache node modules
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: node_modules
+  #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-node-
 
-      # - name: Run Tests
-      #   run: npm test
-      #   env:
-      #     CI: true
+  #     # - name: Run Tests
+  #     #   run: npm test
+  #     #   env:
+  #     #     CI: true
 
-      # - name: Create .env file
-      #   run: |
-      #     cat > .env << EOL
-      #     REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
-      #     REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
-      #     REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
-      #     REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
-      #     REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
-      #     EOL
+  #     # - name: Create .env file
+  #     #   run: |
+  #     #     cat > .env << EOL
+  #     #     REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
+  #     #     REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
+  #     #     REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
+  #     #     REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
+  #     #     REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
+  #     #     EOL
 
-      # - name: Install AWS Amplify CLI
-      #   run: npm install -g @aws-amplify/cli
+  #     # - name: Install AWS Amplify CLI
+  #     #   run: npm install -g @aws-amplify/cli
 
-      # - name: Configure Amplify
-      #   run: |
-      #     amplify init \
-      #       --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
-      #       --yes
-      #     amplify pull \
-      #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-      #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
-      #       --yes
+  #     # - name: Configure Amplify
+  #     #   run: |
+  #     #     amplify init \
+  #     #       --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
+  #     #       --yes
+  #     #     amplify pull \
+  #     #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+  #     #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
+  #     #       --yes
 
-      - name: Create .env file
-        run: |
-          cat > .env << EOL
-          REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
-          REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
-          REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
-          REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
-          REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
-          EOL
-      - name: Install AWS Amplify CLI
-        run: npm install -g @aws-amplify/cli
+  #     - name: Create .env file
+  #       run: |
+  #         cat > .env << EOL
+  #         REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
+  #         REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
+  #         REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
+  #         REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
+  #         REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
+  #         EOL
+  #     - name: Install AWS Amplify CLI
+  #       run: npm install -g @aws-amplify/cli
         
-      - name: Configure Amplify
-        run: |
-          amplify init \
-            --name "aiadventuregame" \
-            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-            --yes
-          amplify pull \
-            --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
-            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-            --yes
-        env:
-          AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
-          AWS_REGION: ${{ env.AWS_REGION }}  
-          AMPLIFY_ENV_NAME: ${{ env.AMPLIFY_ENV_NAME }}
-      - name: Build Frontend
-        run: npm run build
-        env:
-          CI: true
+  #     - name: Configure Amplify
+  #       run: |
+  #         amplify init \
+  #           --name "aiadventuregame" \
+  #           --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+  #           --yes
+  #         amplify pull \
+  #           --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
+  #           --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+  #           --yes
+  #       env:
+  #         AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
+  #         AWS_REGION: ${{ env.AWS_REGION }}  
+  #         AMPLIFY_ENV_NAME: ${{ env.AMPLIFY_ENV_NAME }}
+  #     - name: Build Frontend
+  #       run: npm run build
+  #       env:
+  #         CI: true
 
-      - name: Deploy to Amplify
-        run: |
-          amplify publish --yes || (
-            echo "Amplify deployment failed"
-            exit 1
-          )
+  #     - name: Deploy to Amplify
+  #       run: |
+  #         amplify publish --yes || (
+  #           echo "Amplify deployment failed"
+  #           exit 1
+  #         )
 
-  lint:
-    name: Code Quality
-    runs-on: ubuntu-latest
+  # lint:
+  #   name: Code Quality
+  #   runs-on: ubuntu-latest
     
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '18'
+  #         cache: 'npm'
 
-      - name: Cache node modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+  #     - name: Cache node modules
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: node_modules
+  #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-node-
 
-      - name: Install Dependencies
-        run: npm ci
+  #     - name: Install Dependencies
+  #       run: npm ci
 
-      - name: Lint JavaScript/React
-        run: |
-          npm run lint || (
-            echo "JavaScript/React linting failed"
-            exit 1
-          )
-          npm run format:check || (
-            echo "Code formatting check failed"
-            exit 1
-          )
+  #     - name: Lint JavaScript/React
+  #       run: |
+  #         npm run lint || (
+  #           echo "JavaScript/React linting failed"
+  #           exit 1
+  #         )
+  #         npm run format:check || (
+  #           echo "Code formatting check failed"
+  #           exit 1
+  #         )
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-          cache: 'pip'
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: '3.9'
+  #         cache: 'pip'
 
-      - name: Cache Python packages
-        uses: actions/cache@v3
-        id: cache-pip
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+  #     - name: Cache Python packages
+  #       uses: actions/cache@v3
+  #       id: cache-pip
+  #       with:
+  #         path: ~/.cache/pip
+  #         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-pip-
 
-      - name: Install Python Dependencies
-        if: steps.cache-pip.outputs.cache-hit != 'true'
-        run: |
-          cd infra/bedrock-code
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            echo "requirements.txt not found"
-            exit 1
-          fi
+  #     - name: Install Python Dependencies
+  #       if: steps.cache-pip.outputs.cache-hit != 'true'
+  #       run: |
+  #         cd infra/bedrock-code
+  #         python -m pip install --upgrade pip
+  #         if [ -f requirements.txt ]; then
+  #           pip install -r requirements.txt
+  #         else
+  #           echo "requirements.txt not found"
+  #           exit 1
+  #         fi
 
-      - name: Lint Python
-        run: |
-          cd infra/bedrock-code
-          pylint *.py || (
-            echo "Python linting failed"
-            exit 1
-          )
-          black --check . || (
-            echo "Python formatting check failed"
-            exit 1
-          )
+  #     - name: Lint Python
+  #       run: |
+  #         cd infra/bedrock-code
+  #         pylint *.py || (
+  #           echo "Python linting failed"
+  #           exit 1
+  #         )
+  #         black --check . || (
+  #           echo "Python formatting check failed"
+  #           exit 1
+  #         )

@@ -1,3 +1,5 @@
+import { Auth } from 'aws-amplify/auth';
+
 const awsExports = {
     Auth: {
         region: process.env.REACT_APP_AWS_REGION,
@@ -5,16 +7,18 @@ const awsExports = {
         userPoolWebClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID,
     },
     API: {
-        endpoints: [
-            {
-                name: 'gameApi',
+        REST: {
+            gameApi: {
                 endpoint: process.env.REACT_APP_LAMBDA_ENDPOINT,
                 region: process.env.REACT_APP_AWS_REGION,
                 custom_header: async () => {
-                    return { Authorization: `Bearer ${(await Auth.currentSession()).getIdToken().getJwtToken()}` }
+                    const session = await Auth.currentSession();
+                    return { 
+                        Authorization: `Bearer ${session.getIdToken().getJwtToken()}`
+                    }
                 }
             }
-        ]
+        }
     }
 };
 
