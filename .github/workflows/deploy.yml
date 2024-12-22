@@ -233,7 +233,10 @@ jobs:
               --frontend javascript \
               --framework react \
               --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}'
-
+        - name: Fix Component File Names
+          run: |
+                mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
+                mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
         - name: Build Frontend
           run: |
             npm run build
