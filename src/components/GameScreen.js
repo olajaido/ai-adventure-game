@@ -161,6 +161,24 @@ function GameScreen() {
         level: 1
     });
 
+    const generateNewScene = useCallback(async () => {
+        try {
+            const response = await api.post('gameApi', '/generate-story', {
+                body: {
+                    current_scene: 'start',
+                    player_choice: null,
+                },
+            });
+
+            setCurrentScene(response.scene);
+            setChoices(response.choices);
+            setLoading(false);
+        } catch (error) {
+            console.error('Error generating new scene:', error);
+            setLoading(false);
+        }
+    }, []);
+
     const loadGameState = useCallback(async () => {
         try {
             const response = await api.get('gameApi', '/game-state');
@@ -181,25 +199,7 @@ function GameScreen() {
             console.error('Error loading game state:', error);
             setLoading(false);
         }
-    }, []);
-
-    const generateNewScene = useCallback(async () => {
-        try {
-            const response = await api.post('gameApi', '/generate-story', {
-                body: {
-                    current_scene: 'start',
-                    player_choice: null,
-                },
-            });
-
-            setCurrentScene(response.scene);
-            setChoices(response.choices);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error generating new scene:', error);
-            setLoading(false);
-        }
-    }, []);
+    }, [generateNewScene]);
 
     useEffect(() => {
         loadGameState();
