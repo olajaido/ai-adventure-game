@@ -14,7 +14,7 @@ variable "project_name" {
 variable "environment" {
   description = "Environment (dev, staging, prod)"
   type        = string
-  default     = "dev"
+  default     = "DEVELOPMENT"
 }
 
 # Add to your existing variables
