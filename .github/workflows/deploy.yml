@@ -58,13 +58,32 @@ jobs:
       # Package Lambda before Terraform operations
       - name: Package Lambda Code
         run: |
-          cd bedrock-code
-          if [ ! -f requirements.txt ]; then
-            echo "requirements.txt not found"
-            exit 1
-          fi
-          pip install -r requirements.txt -t .
-          zip -r ../lambda.zip ./*
+            cd bedrock-code
+            if [ ! -f requirements.txt ]; then
+              echo "requirements.txt not found"
+              exit 1
+            fi
+            
+            # Create directory structure for Lambda layer
+            mkdir -p python/lib/python3.9/site-packages
+            
+            # Install dependencies into the layer directory
+            pip install -r requirements.txt -t python/lib/python3.9/site-packages
+            
+            # Create Lambda layer ZIP
+            zip -r ../lambda_layer.zip python
+            
+            # Original Lambda function ZIP
+            zip -r ../lambda.zip ./*
+      # - name: Package Lambda Code
+      #   run: |
+      #     cd bedrock-code
+      #     if [ ! -f requirements.txt ]; then
+      #       echo "requirements.txt not found"
+      #       exit 1
+      #     fi
+      #     pip install -r requirements.txt -t .
+      #     zip -r ../lambda.zip ./*
 
       - name: Terraform Plan
         if: github.event_name == 'pull_request'
