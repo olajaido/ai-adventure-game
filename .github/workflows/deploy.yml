@@ -202,46 +202,36 @@ jobs:
             mkdir -p amplify/backend
             mkdir -p amplify/.config
         
-            # Create backend meta file
+            # Create a comprehensive Amplify configuration file
             echo '{
+              "userPoolId": "${{ needs.terraform.outputs.user_pool_id }}",
+              "userPoolWebClientId": "${{ needs.terraform.outputs.client_id }}",
+              "amplify": {
+                "projectName": "aiadventuregame",
+                "projectId": "d3s8tb811rq75i",
+                "defaultEditor": "vscode",
+                "envName": "dev"
+              },
+              "frontend": {
+                "javascript": {
+                  "framework": "react",
+                  "config": {
+                    "SourceDir": "src",
+                    "DistributionDir": "build",
+                    "BuildCommand": "npm run-script build",
+                    "StartCommand": "npm run-script start"
+                  }
+                }
+              },
               "providers": {
                 "awscloudformation": {
                   "Region": "'${{ env.AWS_REGION }}'",
                   "StackName": "amplify-aiadventuregame-dev-00000",
                   "EnvironmentName": "dev",
-                  "Bucket": "${{ env.AWS_BACKEND_BUCKET }}"
-                }
-              },
-              "projectName": "aiadventuregame"
-            }' > amplify/backend/amplify-meta.json
-        
-            # Create team-provider-info.json
-            echo '{
-              "dev": {
-                "awscloudformation": {
-                  "Region": "'${{ env.AWS_REGION }}'",
-                  "AppId": "d3s8tb811rq75i",
-                  "EnvironmentName": "dev",
-                  "Bucket": "${{ env.AWS_BACKEND_BUCKET }}"
+                  "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                  "AppId": "d3s8tb811rq75i"
                 }
               }
-            }' > amplify/team-provider-info.json
-        
-            # Create project configuration
-            echo '{
-              "projectName": "aiadventuregame",
-              "version": "3.1",
-              "frontend": "javascript",
-              "javascript": {
-                "framework": "react",
-                "config": {
-                  "SourceDir": "src",
-                  "DistributionDir": "build",
-                  "BuildCommand": "npm run-script build",
-                  "StartCommand": "npm run-script start"
-                }
-              },
-              "providers": ["awscloudformation"]
             }' > amplify/.config/project-config.json
         
             # Create local env info
@@ -250,37 +240,68 @@ jobs:
               "defaultEditor": "vscode",
               "envName": "dev"
             }' > amplify/.config/local-env-info.json
-
+        
+            # Create backend meta file
+            echo '{
+              "providers": {
+                "awscloudformation": {
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "StackName": "amplify-aiadventuregame-dev-00000",
+                  "EnvironmentName": "dev",
+                  "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                  "AppId": "d3s8tb811rq75i"
+                }
+              },
+              "projectName": "aiadventuregame"
+            }' > amplify/backend/amplify-meta.json
+        
+            # Create team provider info
+            echo '{
+              "dev": {
+                "awscloudformation": {
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "AppId": "d3s8tb811rq75i",
+                  "EnvironmentName": "dev",
+                  "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                  "StackName": "amplify-aiadventuregame-dev-00000"
+                }
+              }
+            }' > amplify/team-provider-info.json
+        
+            # Create a basic .amplifyrc
+            echo '{
+              "projectName": "aiadventuregame",
+              "envName": "dev",
+              "defaultEditor": "vscode",
+              "amplify": {
+                "projectId": "d3s8tb811rq75i"
+              },
+              "providers": {
+                "awscloudformation": {
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "ProviderName": "awscloudformation",
+                  "StackName": "amplify-aiadventuregame-dev-00000"
+                }
+              }
+            }' > .amplifyrc
       - name: Initialize Amplify
         run: |
               # Verify Amplify CLI version
               amplify --version
           
-              # Create a basic configuration file
-              echo '{
-                "projectName": "aiadventuregame",
-                "envName": "dev",
-                "defaultEditor": "vscode",
-                "amplify": {
-                  "projectId": "d3s8tb811rq75i"
-                },
-                "providers": {
-                  "awscloudformation": {
-                    "Region": "'$AWS_REGION'",
-                    "ProviderName": "awscloudformation",
-                    "StackName": "amplify-aiadventuregame-dev-00000"
-                  }
-                }
-              }' > .amplifyrc
+              # Disable logging and force non-interactive mode
+              export AMPLIFY_CLI_DISABLE_LOGGING=true
+              export CI=1
           
-              # Initialize Amplify with explicit configuration
-              AMPLIFY_CLI_DISABLE_LOGGING=true amplify init \
+              # Try to initialize Amplify with comprehensive configuration
+              amplify init \
                 --appId d3s8tb811rq75i \
                 --envName dev \
                 --yes \
                 --frontend javascript \
                 --framework react \
                 --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}' 2>&1
+          
 
       - name: Fix Component File Names
         run: |
@@ -303,16 +324,19 @@ jobs:
             # Additional debugging
             echo "Amplify App ID: d3s8tb811rq75i"
             echo "Environment Name: dev"
-            echo "AWS Region: $AWS_REGION"
-            echo "Backend Bucket: $AWS_BACKEND_BUCKET"
+            echo "AWS Region: ${{ env.AWS_REGION }}"
+            echo "Backend Bucket: ${{ env.AWS_BACKEND_BUCKET }}"
         
             # Verify backend configuration
             echo "Amplify backend directory contents:"
             ls -la amplify/backend
         
             # Try to push and publish
-            AMPLIFY_CLI_DISABLE_LOGGING=true amplify push --yes
-            AMPLIFY_CLI_DISABLE_LOGGING=true amplify publish --yes || (
+            export AMPLIFY_CLI_DISABLE_LOGGING=true
+            export CI=1
+        
+            amplify push --yes
+            amplify publish --yes || (
               echo "Amplify deployment failed"
               echo "Project config:"
               cat amplify/.config/project-config.json
@@ -323,7 +347,8 @@ jobs:
               echo "Backend meta:"
               cat amplify/backend/amplify-meta.json
               exit 1
-            )   
+            )
+         
   # frontend:
   #     name: Deploy Frontend
   #     runs-on: ubuntu-latest
