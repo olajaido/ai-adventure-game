@@ -1,13 +1,23 @@
+// import React from 'react';
+// import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+// import { Amplify } from 'aws-amplify';
+// import { withAuthenticator } from '@aws-amplify/ui-react';
+// import '@aws-amplify/ui-react/styles.css';
+// import awsExports from './aws-exports';  // Import AWS exports
+// import GameScreen from './components/GameScreen';  
+// import Inventory from './components/inventory';    
+// import Profile from './components/profile';        
+// import './styles/App.css';                        
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import { Amplify } from 'aws-amplify';
 import { withAuthenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
-import awsExports from './aws-exports';  // Import AWS exports
+import awsExports from './aws-exports';
 import GameScreen from './components/GameScreen';  
 import Inventory from './components/inventory';    
 import Profile from './components/profile';        
-import './styles/App.css';                        
+import './styles/App.css'; 
 
 // Configure Amplify with imported config
 Amplify.configure(awsExports);

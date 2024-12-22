@@ -211,6 +211,28 @@ jobs:
       #   env:
       #     CI: true
 
+      # - name: Create .env file
+      #   run: |
+      #     cat > .env << EOL
+      #     REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
+      #     REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
+      #     REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
+      #     REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
+      #     REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
+      #     EOL
+
+      # - name: Install AWS Amplify CLI
+      #   run: npm install -g @aws-amplify/cli
+
+      # - name: Configure Amplify
+      #   run: |
+      #     amplify init \
+      #       --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
+      #       --yes
+      #     amplify pull \
+      #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+      #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
+      #       --yes
       - name: Create .env file
         run: |
           cat > .env << EOL
@@ -220,18 +242,22 @@ jobs:
           REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
           REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
           EOL
-
+    
       - name: Install AWS Amplify CLI
         run: npm install -g @aws-amplify/cli
-
+    
       - name: Configure Amplify
         run: |
-          amplify init \
-            --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
-            --yes
+          amplify configure project \
+            --name "aiadventuregame" \
+            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+            --region "${{ env.AWS_REGION }}"
+    
+      - name: Pull Amplify Configuration
+        run: |
           amplify pull \
-            --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-            --envName ${{ env.AMPLIFY_ENV_NAME }} \
+            --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
+            --envName "${{ env.AMPLIFY_ENV_NAME }}" \
             --yes
 
       - name: Build Frontend
