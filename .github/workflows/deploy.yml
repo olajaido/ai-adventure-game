@@ -202,25 +202,18 @@ jobs:
             mkdir -p amplify/backend
             mkdir -p amplify/.config
         
-            # Create a comprehensive Amplify configuration file
+            # Create project configuration with correct providers format
             echo '{
-              "userPoolId": "${{ needs.terraform.outputs.user_pool_id }}",
-              "userPoolWebClientId": "${{ needs.terraform.outputs.client_id }}",
-              "amplify": {
-                "projectName": "aiadventuregame",
-                "projectId": "d3s8tb811rq75i",
-                "defaultEditor": "vscode",
-                "envName": "dev"
-              },
-              "frontend": {
-                "javascript": {
-                  "framework": "react",
-                  "config": {
-                    "SourceDir": "src",
-                    "DistributionDir": "build",
-                    "BuildCommand": "npm run-script build",
-                    "StartCommand": "npm run-script start"
-                  }
+              "projectName": "aiadventuregame",
+              "version": "3.1",
+              "frontend": "javascript",
+              "javascript": {
+                "framework": "react",
+                "config": {
+                  "SourceDir": "src",
+                  "DistributionDir": "build",
+                  "BuildCommand": "npm run-script build",
+                  "StartCommand": "npm run-script start"
                 }
               },
               "providers": {
@@ -268,7 +261,7 @@ jobs:
               }
             }' > amplify/team-provider-info.json
         
-            # Create a basic .amplifyrc
+            # Create .amplifyrc with explicit provider configuration
             echo '{
               "projectName": "aiadventuregame",
               "envName": "dev",
@@ -284,6 +277,7 @@ jobs:
                 }
               }
             }' > .amplifyrc
+
       - name: Initialize Amplify
         run: |
               # Verify Amplify CLI version
@@ -293,8 +287,17 @@ jobs:
               export AMPLIFY_CLI_DISABLE_LOGGING=true
               export CI=1
           
+              # Create a configuration JSON file
+              echo '{
+                "projectName": "aiadventuregame",
+                "envName": "dev",
+                "defaultEditor": "vscode",
+                "frontend": "javascript",
+                "framework": "react"
+              }' > amplify-config.json
+          
               # Try to initialize Amplify with comprehensive configuration
-              amplify init \
+              AMPLIFY_CONFIG_FILE=amplify-config.json amplify init \
                 --appId d3s8tb811rq75i \
                 --envName dev \
                 --yes \
@@ -348,7 +351,7 @@ jobs:
               cat amplify/backend/amplify-meta.json
               exit 1
             )
-         
+        
   # frontend:
   #     name: Deploy Frontend
   #     runs-on: ubuntu-latest
