@@ -192,14 +192,44 @@ jobs:
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
-      - name: Setup Amplify
+      - name: Configure Amplify
         run: |
-          amplify configure --provider awscloudformation \
-            --region ${{ env.AWS_REGION }}
-            
-          amplify pull --appId d3s8tb811rq75i \
-            --envName dev \
-            --yes
+            # Create necessary directories
+            mkdir -p amplify/.config
+  
+            # Create project-config.json
+            echo '{
+              "projectName": "aiadventuregame",
+              "version": "3.1",
+              "frontend": "javascript",
+              "javascript": {
+                "framework": "react",
+                "config": {
+                  "SourceDir": "src",
+                  "DistributionDir": "build",
+                  "BuildCommand": "npm run-script build",
+                  "StartCommand": "npm run-script start"
+                }
+              },
+              "providers": ["awscloudformation"]
+            }' > amplify/.config/project-config.json
+  
+            # Create local-env-info.json
+            echo '{
+              "projectPath": "'$(pwd)'",
+              "defaultEditor": "vscode",
+              "envName": "dev"
+            }' > amplify/.config/local-env-info.json
+  
+            # Create backend directory
+            mkdir -p amplify/backend
+  
+            # Configure Amplify
+            amplify pull \
+              --appId d3s8tb811rq75i \
+              --envName dev \
+              --yes
+  
       - name: Fix Component File Names
         run: |
           mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
@@ -218,7 +248,15 @@ jobs:
 
       - name: Deploy to Amplify
         run: |
-          amplify publish --yes     
+            amplify push --yes
+            amplify publish --yes || (
+              echo "Amplify deployment failed"
+              echo "Project config:"
+              cat amplify/.config/project-config.json
+              echo "Local env info:"
+              cat amplify/.config/local-env-info.json
+              exit 1
+            )     
   # frontend:
   #   name: Deploy Frontend
   #   runs-on: ubuntu-latest
