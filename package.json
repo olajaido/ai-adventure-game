@@ -2,6 +2,7 @@
   "name": "ai-adventure-game",
   "version": "1.0.0",
   "private": true,
+  "homepage": "https://dev.d20eknb0yurkis.amplifyapp.com",
   "dependencies": {
     "@aws-amplify/ui-react": "^6.0.0",
     "@aws-sdk/client-bedrock-runtime": "^3.0.0",
