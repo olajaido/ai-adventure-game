@@ -974,6 +974,10 @@ jobs:
           echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
+      - name: Fix Component File Names
+        run: |
+          mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
+          mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true    
 
       - name: Build Frontend
         run: npm run build
