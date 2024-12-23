@@ -203,6 +203,30 @@ jobs:
               # Create types directory configuration
               echo '{}' > amplify/backend/types/amplify-dependent-resources-ref.d.ts
               
+              # Create cli-inputs.json
+              echo '{
+                "projectName": "aiadventuregame",
+                "envName": "dev",
+                "defaultEditor": "vscode",
+                "frontend": {
+                  "javascript": {
+                    "config": {
+                      "BuildCommand": "npm run-script build",
+                      "StartCommand": "npm run-script start",
+                      "DistributionDir": "build",
+                      "SourceDir": "src"
+                    },
+                    "framework": "react"
+                  }
+                },
+                "hosting": {
+                  "amplifyhosting": {
+                    "type": "cicd",
+                    "appId": "d3s8tb811rq75i"
+                  }
+                }
+              }' > amplify/cli-inputs.json
+        
               # Create project-config.json
               echo '{
                 "projectName": "aiadventuregame",
@@ -250,14 +274,6 @@ jobs:
                   }
                 }
               }' > amplify/team-provider-info.json
-        
-              # Initialize Amplify with temporary credentials
-              echo "Initializing Amplify..."
-              amplify init \
-                --amplify "{\"envName\":\"dev\"}" \
-                --frontend "{\"frontend\":\"javascript\",\"framework\":\"react\",\"config\":{\"SourceDir\":\"src\",\"DistributionDir\":\"build\",\"BuildCommand\":\"npm run-script build\",\"StartCommand\":\"npm run-script start\"}}" \
-                --providers "{\"awscloudformation\":{\"configLevel\":\"project\",\"useProfile\":false,\"accessKeyId\":\"$AWS_ACCESS_KEY_ID\",\"secretAccessKey\":\"$AWS_SECRET_ACCESS_KEY\",\"sessionToken\":\"$AWS_SESSION_TOKEN\",\"region\":\"$AWS_REGION\"}}" \
-                --yes
         
               # Create amplify-meta.json
               echo '{
@@ -314,15 +330,18 @@ jobs:
                 }
               }' > amplify/backend/backend-config.json
         
-              # Add hosting with headless mode
+              # Initialize Amplify from config
+              echo "Initializing Amplify..."
+              amplify init \
+                --fromConfig \
+                --yes
+        
+              # Add hosting with non-interactive mode
               echo "Adding hosting..."
               amplify add hosting \
-                --headless \
-                --service amplifyhosting \
-                --providerPlugin awscloudformation \
-                --frontend javascript \
-                --appId d3s8tb811rq75i \
-                --type cicd
+                --fromConfig \
+                --config "{\"frontend\":\"javascript\",\"hosting\":{\"amplifyhosting\":{\"type\":\"cicd\",\"appId\":\"d3s8tb811rq75i\"}}}" \
+                --yes
         
         env:
             AWS_REGION: eu-west-2
