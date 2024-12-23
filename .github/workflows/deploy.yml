@@ -192,13 +192,16 @@ jobs:
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
+     
+          
+
       - name: Configure Amplify and Hosting
         run: |
               # Create necessary directories
               mkdir -p amplify/.config
               mkdir -p amplify/backend
               mkdir -p amplify/backend/hosting/amplifyhosting
-    
+        
               # Create project-config.json
               echo '{
                 "projectName": "aiadventuregame",
@@ -215,21 +218,31 @@ jobs:
                 },
                 "providers": ["awscloudformation"]
               }' > amplify/.config/project-config.json
-    
+        
               # Create local-env-info.json
               echo '{
                 "projectPath": "'$(pwd)'",
                 "defaultEditor": "vscode",
                 "envName": "dev"
               }' > amplify/.config/local-env-info.json
-  
+        
               # Create hosting configuration
               echo '{
                 "service": "amplifyhosting",
                 "providerPlugin": "awscloudformation",
                 "type": "manual"
               }' > amplify/backend/hosting/amplifyhosting/amplifyhosting-template.json
-    
+        
+              # Create parameters.json for hosting
+              echo '{
+                "hosting": {
+                  "type": "PROD",
+                  "amplify": {
+                    "appId": "d3s8tb811rq75i"
+                  }
+                }
+              }' > amplify/backend/hosting/amplifyhosting/parameters.json
+        
               # Create amplify-meta.json
               echo '{
                 "providers": {
@@ -273,7 +286,7 @@ jobs:
                     "service": "amplifyhosting",
                     "type": "manual",
                     "providerPlugin": "awscloudformation",
-                    "lastPushTimeStamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                    "lastPushTimeStamp": "'$(TZ=UTC date "+%Y-%m-%dT%H:%M:%SZ")'",
                     "output": {
                       "appId": "d3s8tb811rq75i",
                       "region": "'${{ env.AWS_REGION }}'",
@@ -282,7 +295,7 @@ jobs:
                   }
                 }
               }' > amplify/backend/amplify-meta.json
-    
+        
               # Create team-provider-info.json
               echo '{
                 "dev": {
@@ -309,20 +322,24 @@ jobs:
                   }
                 }
               }' > amplify/team-provider-info.json
-  
+        
               # Initialize Amplify with hosting
               amplify init \
                 --amplify "{\"envName\":\"dev\"}" \
                 --yes
-  
-              # Add hosting
+        
+              # Add hosting with headless configuration
               echo "Adding hosting..."
               amplify add hosting \
-                --service amplifyhosting \
-                --providerPlugin awscloudformation \
-                --appId d3s8tb811rq75i \
-                --envName dev \
-                --yes
+                --headless \
+                --categories '{
+                  "hosting": {
+                    "type": "PROD",
+                    "amplify": {
+                      "appId": "d3s8tb811rq75i"
+                    }
+                  }
+                }'
   
       - name: Fix Component File Names
         run: |
