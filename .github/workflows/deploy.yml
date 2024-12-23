@@ -157,6 +157,7 @@ jobs:
           echo "User Pool ID: $user_pool_id"
           echo "Lambda Endpoint: $lambda_endpoint"
      
+
   frontend:
     name: Deploy Frontend
     runs-on: ubuntu-latest
@@ -181,7 +182,6 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install
-          npm install -D typescript @types/react @types/react-dom
           npm install -g @aws-amplify/cli
 
       - name: Create .env file
@@ -191,125 +191,15 @@ jobs:
           echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
-          
-          # Debug output
-          echo "Environment file contents:"
-          cat .env
 
-      - name: Create Amplify Backend Configuration
+      - name: Setup Amplify
         run: |
-            # Ensure Amplify backend directories exist
-            mkdir -p amplify/backend
-            mkdir -p amplify/.config
-        
-            # Create project configuration with correct providers format
-            echo '{
-              "projectName": "aiadventuregame",
-              "version": "3.1",
-              "frontend": "javascript",
-              "javascript": {
-                "framework": "react",
-                "config": {
-                  "SourceDir": "src",
-                  "DistributionDir": "build",
-                  "BuildCommand": "npm run-script build",
-                  "StartCommand": "npm run-script start"
-                }
-              },
-              "providers": {
-                "awscloudformation": {
-                  "Region": "'${{ env.AWS_REGION }}'",
-                  "StackName": "amplify-aiadventuregame-dev-00000",
-                  "EnvironmentName": "dev",
-                  "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
-                  "AppId": "d3s8tb811rq75i"
-                }
-              }
-            }' > amplify/.config/project-config.json
-        
-            # Create local env info
-            echo '{
-              "projectPath": "'$(pwd)'",
-              "defaultEditor": "vscode",
-              "envName": "dev"
-            }' > amplify/.config/local-env-info.json
-        
-            # Create backend meta file
-            echo '{
-              "providers": {
-                "awscloudformation": {
-                  "Region": "'${{ env.AWS_REGION }}'",
-                  "StackName": "amplify-aiadventuregame-dev-00000",
-                  "EnvironmentName": "dev",
-                  "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
-                  "AppId": "d3s8tb811rq75i"
-                }
-              },
-              "projectName": "aiadventuregame"
-            }' > amplify/backend/amplify-meta.json
-        
-            # Create team provider info
-            echo '{
-              "dev": {
-                "awscloudformation": {
-                  "Region": "'${{ env.AWS_REGION }}'",
-                  "AppId": "d3s8tb811rq75i",
-                  "EnvironmentName": "dev",
-                  "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
-                  "StackName": "amplify-aiadventuregame-dev-00000"
-                }
-              }
-            }' > amplify/team-provider-info.json
-        
-            # Create .amplifyrc with explicit provider configuration
-            echo '{
-              "projectName": "aiadventuregame",
-              "envName": "dev",
-              "defaultEditor": "vscode",
-              "amplify": {
-                "projectId": "d3s8tb811rq75i"
-              },
-              "providers": {
-                "awscloudformation": {
-                  "Region": "'${{ env.AWS_REGION }}'",
-                  "ProviderName": "awscloudformation",
-                  "StackName": "amplify-aiadventuregame-dev-00000"
-                }
-              }
-            }' > .amplifyrc
-
-      - name: Initialize Amplify
-        run: |
-              # Verify Amplify CLI version
-              amplify --version
-          
-              # Disable logging and force non-interactive mode
-              export AMPLIFY_CLI_DISABLE_LOGGING=true
-              export CI=1
-          
-              # Create a configuration JSON file
-              echo '{
-                "projectName": "aiadventuregame",
-                "envName": "dev",
-                "defaultEditor": "vscode",
-                "frontend": "javascript",
-                "framework": "react"
-              }' > amplify-config.json
-          
-              # Try to initialize Amplify with comprehensive configuration
-              AMPLIFY_CONFIG_FILE=amplify-config.json amplify init \
-                --appId d3s8tb811rq75i \
-                --envName dev \
-                --yes \
-                --frontend javascript \
-                --framework react \
-                --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}' 2>&1
-          
-
-      - name: Fix Component File Names
-        run: |
-          mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
-          mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
+          amplify configure --provider awscloudformation \
+            --region ${{ env.AWS_REGION }}
+            
+          amplify pull --appId d3s8tb811rq75i \
+            --envName dev \
+            --yes
 
       - name: Build Frontend
         run: |
@@ -324,79 +214,53 @@ jobs:
 
       - name: Deploy to Amplify
         run: |
-            # Additional debugging
-            echo "Amplify App ID: d3s8tb811rq75i"
-            echo "Environment Name: dev"
-            echo "AWS Region: ${{ env.AWS_REGION }}"
-            echo "Backend Bucket: ${{ env.AWS_BACKEND_BUCKET }}"
-        
-            # Verify backend configuration
-            echo "Amplify backend directory contents:"
-            ls -la amplify/backend
-        
-            # Try to push and publish
-            export AMPLIFY_CLI_DISABLE_LOGGING=true
-            export CI=1
-        
-            amplify push --yes
-            amplify publish --yes || (
-              echo "Amplify deployment failed"
-              echo "Project config:"
-              cat amplify/.config/project-config.json
-              echo "Local env info:"
-              cat amplify/.config/local-env-info.json
-              echo "Team provider info:"
-              cat amplify/team-provider-info.json
-              echo "Backend meta:"
-              cat amplify/backend/amplify-meta.json
-              exit 1
-            )
-        
+          amplify publish --yes     
   # frontend:
-  #     name: Deploy Frontend
-  #     runs-on: ubuntu-latest
-  #     needs: terraform
-  #     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    
-  #     steps:
-  #       - name: Checkout Repository
-  #         uses: actions/checkout@v3
+  #   name: Deploy Frontend
+  #   runs-on: ubuntu-latest
+  #   needs: terraform
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
 
-  #       - name: Setup Node.js
-  #         uses: actions/setup-node@v3
-  #         with:
-  #           node-version: '18'
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v3
 
-  #       - name: Configure AWS Credentials
-  #         uses: aws-actions/configure-aws-credentials@v4
-  #         with:
-  #           role-to-assume: ${{ env.AWS_ROLE_ARN }}
-  #           aws-region: ${{ env.AWS_REGION }}
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '18'
 
-  #       - name: Install Dependencies
-  #         run: |
-  #           npm install
-  #           npm install -D typescript @types/react @types/react-dom
-  #           npm install -g @aws-amplify/cli
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ env.AWS_ROLE_ARN }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-  #       - name: Create .env file
-  #         run: |
-  #           echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
-  #           echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
-  #           echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
-  #           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
-  #           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
-            
-  #           # Debug output
-  #           echo "Environment file contents:"
-  #           cat .env
+  #     - name: Install Dependencies
+  #       run: |
+  #         npm install
+  #         npm install -D typescript @types/react @types/react-dom
+  #         npm install -g @aws-amplify/cli
 
-  #       - name: Configure Amplify
-  #         run: |
-  #           # Create necessary Amplify configuration directories
+  #     - name: Create .env file
+  #       run: |
+  #         echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
+  #         echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
+  #         echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
+  #         echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
+  #         echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
+          
+  #         # Debug output
+  #         echo "Environment file contents:"
+  #         cat .env
+
+  #     - name: Create Amplify Backend Configuration
+  #       run: |
+  #           # Ensure Amplify backend directories exist
+  #           mkdir -p amplify/backend
   #           mkdir -p amplify/.config
-
-  #           # Create project-config.json
+        
+  #           # Create project configuration with correct providers format
   #           echo '{
   #             "projectName": "aiadventuregame",
   #             "version": "3.1",
@@ -410,238 +274,432 @@ jobs:
   #                 "StartCommand": "npm run-script start"
   #               }
   #             },
-  #             "providers": ["awscloudformation"]
+  #             "providers": {
+  #               "awscloudformation": {
+  #                 "Region": "'${{ env.AWS_REGION }}'",
+  #                 "StackName": "amplify-aiadventuregame-dev-00000",
+  #                 "EnvironmentName": "dev",
+  #                 "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
+  #                 "AppId": "d3s8tb811rq75i"
+  #               }
+  #             }
   #           }' > amplify/.config/project-config.json
-
-  #           # Create local-env-info.json
+        
+  #           # Create local env info
   #           echo '{
   #             "projectPath": "'$(pwd)'",
   #             "defaultEditor": "vscode",
-  #             "envName": "'${AMPLIFY_ENV_NAME}'"
+  #             "envName": "dev"
   #           }' > amplify/.config/local-env-info.json
-
-  #           # Initialize Amplify
-  #           amplify init \
-  #             --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-  #             --envName ${{ env.AMPLIFY_ENV_NAME }} \
-  #             --yes \
-  #             --frontend javascript \
-  #             --framework react \
-  #             --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}'
-  #       - name: Fix Component File Names
-  #         run: |
-  #               mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
-  #               mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
-  #       - name: Build Frontend
-  #         run: |
-  #           npm run build
-  #         env:
-  #           CI: true
-  #           REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
-  #           REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
-  #           REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
-  #           REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
-  #           REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
-
-  #       - name: Deploy to Amplify
-  #         run: |
-  #           amplify push --yes
-  #           amplify publish --yes || (
-  #             echo "Amplify deployment failed"
-  #             cat amplify/.config/project-config.json
-  #             cat amplify/.config/local-env-info.json
-  #             exit 1
-  #           )
-                    
-
-  # frontend:
-  #   name: Deploy Frontend
-  #   runs-on: ubuntu-latest
-  #   needs: terraform
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-    
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v3
-
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: '18'
-      
-  #     - name: Prepare npm cache
-  #       run: |
-  #         # Clear npm cache
-  #         npm cache clean --force
-          
-  #         # Remove existing node_modules and package-lock.json if they exist
-  #         rm -rf node_modules package-lock.json
-          
-  #         # Generate package-lock.json
-  #         npm install
-          
-  #         # Verify file creation
-  #         ls -la
-  #         cat package-lock.json || echo "package-lock.json not created"
-      
-  #     - name: Install Dependencies
-  #       run: |
-  #         npm install
-  #         npm install -D typescript @types/react @types/react-dom    
-
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         role-to-assume: ${{ env.AWS_ROLE_ARN }}
-  #         aws-region: ${{ env.AWS_REGION }}
-
-  #     - name: Cache node modules
-  #       uses: actions/cache@v3
-  #       with:
-  #         path: node_modules
-  #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-node-
-
-  #     # - name: Run Tests
-  #     #   run: npm test
-  #     #   env:
-  #     #     CI: true
-
-  #     # - name: Create .env file
-  #     #   run: |
-  #     #     cat > .env << EOL
-  #     #     REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
-  #     #     REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
-  #     #     REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
-  #     #     REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
-  #     #     REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
-  #     #     EOL
-
-  #     # - name: Install AWS Amplify CLI
-  #     #   run: npm install -g @aws-amplify/cli
-
-  #     # - name: Configure Amplify
-  #     #   run: |
-  #     #     amplify init \
-  #     #       --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
-  #     #       --yes
-  #     #     amplify pull \
-  #     #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
-  #     #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
-  #     #       --yes
-
-  #     - name: Create .env file
-  #       run: |
-  #         cat > .env << EOL
-  #         REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
-  #         REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
-  #         REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
-  #         REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
-  #         REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
-  #         EOL
-  #     - name: Install AWS Amplify CLI
-  #       run: npm install -g @aws-amplify/cli
         
-  #     - name: Configure Amplify
+  #           # Create backend meta file
+  #           echo '{
+  #             "providers": {
+  #               "awscloudformation": {
+  #                 "Region": "'${{ env.AWS_REGION }}'",
+  #                 "StackName": "amplify-aiadventuregame-dev-00000",
+  #                 "EnvironmentName": "dev",
+  #                 "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
+  #                 "AppId": "d3s8tb811rq75i"
+  #               }
+  #             },
+  #             "projectName": "aiadventuregame"
+  #           }' > amplify/backend/amplify-meta.json
+        
+  #           # Create team provider info
+  #           echo '{
+  #             "dev": {
+  #               "awscloudformation": {
+  #                 "Region": "'${{ env.AWS_REGION }}'",
+  #                 "AppId": "d3s8tb811rq75i",
+  #                 "EnvironmentName": "dev",
+  #                 "Bucket": "'${{ env.AWS_BACKEND_BUCKET }}'",
+  #                 "StackName": "amplify-aiadventuregame-dev-00000"
+  #               }
+  #             }
+  #           }' > amplify/team-provider-info.json
+        
+  #           # Create .amplifyrc with explicit provider configuration
+  #           echo '{
+  #             "projectName": "aiadventuregame",
+  #             "envName": "dev",
+  #             "defaultEditor": "vscode",
+  #             "amplify": {
+  #               "projectId": "d3s8tb811rq75i"
+  #             },
+  #             "providers": {
+  #               "awscloudformation": {
+  #                 "Region": "'${{ env.AWS_REGION }}'",
+  #                 "ProviderName": "awscloudformation",
+  #                 "StackName": "amplify-aiadventuregame-dev-00000"
+  #               }
+  #             }
+  #           }' > .amplifyrc
+
+  #     - name: Initialize Amplify
   #       run: |
-  #         amplify init \
-  #           --name "aiadventuregame" \
-  #           --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-  #           --yes
-  #         amplify pull \
-  #           --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
-  #           --envName "${{ env.AMPLIFY_ENV_NAME }}" \
-  #           --yes
-  #       env:
-  #         AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
-  #         AWS_REGION: ${{ env.AWS_REGION }}  
-  #         AMPLIFY_ENV_NAME: ${{ env.AMPLIFY_ENV_NAME }}
+  #             # Verify Amplify CLI version
+  #             amplify --version
+          
+  #             # Disable logging and force non-interactive mode
+  #             export AMPLIFY_CLI_DISABLE_LOGGING=true
+  #             export CI=1
+          
+  #             # Create a configuration JSON file
+  #             echo '{
+  #               "projectName": "aiadventuregame",
+  #               "envName": "dev",
+  #               "defaultEditor": "vscode",
+  #               "frontend": "javascript",
+  #               "framework": "react"
+  #             }' > amplify-config.json
+          
+  #             # Try to initialize Amplify with comprehensive configuration
+  #             AMPLIFY_CONFIG_FILE=amplify-config.json amplify init \
+  #               --appId d3s8tb811rq75i \
+  #               --envName dev \
+  #               --yes \
+  #               --frontend javascript \
+  #               --framework react \
+  #               --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}' 2>&1
+          
+
+  #     - name: Fix Component File Names
+  #       run: |
+  #         mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
+  #         mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
+
   #     - name: Build Frontend
-  #       run: npm run build
+  #       run: |
+  #         npm run build
   #       env:
   #         CI: true
+  #         REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
+  #         REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
+  #         REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
+  #         REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
+  #         REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
 
   #     - name: Deploy to Amplify
   #       run: |
-  #         amplify publish --yes || (
-  #           echo "Amplify deployment failed"
-  #           exit 1
-  #         )
-
-  # lint:
-  #   name: Code Quality
-  #   runs-on: ubuntu-latest
+  #           # Additional debugging
+  #           echo "Amplify App ID: d3s8tb811rq75i"
+  #           echo "Environment Name: dev"
+  #           echo "AWS Region: ${{ env.AWS_REGION }}"
+  #           echo "Backend Bucket: ${{ env.AWS_BACKEND_BUCKET }}"
+        
+  #           # Verify backend configuration
+  #           echo "Amplify backend directory contents:"
+  #           ls -la amplify/backend
+        
+  #           # Try to push and publish
+  #           export AMPLIFY_CLI_DISABLE_LOGGING=true
+  #           export CI=1
+        
+  #           amplify push --yes
+  #           amplify publish --yes || (
+  #             echo "Amplify deployment failed"
+  #             echo "Project config:"
+  #             cat amplify/.config/project-config.json
+  #             echo "Local env info:"
+  #             cat amplify/.config/local-env-info.json
+  #             echo "Team provider info:"
+  #             cat amplify/team-provider-info.json
+  #             echo "Backend meta:"
+  #             cat amplify/backend/amplify-meta.json
+  #             exit 1
+  #           )
+        
+  # # frontend:
+  # #     name: Deploy Frontend
+  # #     runs-on: ubuntu-latest
+  # #     needs: terraform
+  # #     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v3
+  # #     steps:
+  # #       - name: Checkout Repository
+  # #         uses: actions/checkout@v3
 
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: '18'
-  #         cache: 'npm'
+  # #       - name: Setup Node.js
+  # #         uses: actions/setup-node@v3
+  # #         with:
+  # #           node-version: '18'
 
-  #     - name: Cache node modules
-  #       uses: actions/cache@v3
-  #       with:
-  #         path: node_modules
-  #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-node-
+  # #       - name: Configure AWS Credentials
+  # #         uses: aws-actions/configure-aws-credentials@v4
+  # #         with:
+  # #           role-to-assume: ${{ env.AWS_ROLE_ARN }}
+  # #           aws-region: ${{ env.AWS_REGION }}
 
-  #     - name: Install Dependencies
-  #       run: npm ci
+  # #       - name: Install Dependencies
+  # #         run: |
+  # #           npm install
+  # #           npm install -D typescript @types/react @types/react-dom
+  # #           npm install -g @aws-amplify/cli
 
-  #     - name: Lint JavaScript/React
-  #       run: |
-  #         npm run lint || (
-  #           echo "JavaScript/React linting failed"
-  #           exit 1
-  #         )
-  #         npm run format:check || (
-  #           echo "Code formatting check failed"
-  #           exit 1
-  #         )
+  # #       - name: Create .env file
+  # #         run: |
+  # #           echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
+  # #           echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
+  # #           echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
+  # #           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
+  # #           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
+            
+  # #           # Debug output
+  # #           echo "Environment file contents:"
+  # #           cat .env
 
-  #     - name: Setup Python
-  #       uses: actions/setup-python@v4
-  #       with:
-  #         python-version: '3.9'
-  #         cache: 'pip'
+  # #       - name: Configure Amplify
+  # #         run: |
+  # #           # Create necessary Amplify configuration directories
+  # #           mkdir -p amplify/.config
 
-  #     - name: Cache Python packages
-  #       uses: actions/cache@v3
-  #       id: cache-pip
-  #       with:
-  #         path: ~/.cache/pip
-  #         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-pip-
+  # #           # Create project-config.json
+  # #           echo '{
+  # #             "projectName": "aiadventuregame",
+  # #             "version": "3.1",
+  # #             "frontend": "javascript",
+  # #             "javascript": {
+  # #               "framework": "react",
+  # #               "config": {
+  # #                 "SourceDir": "src",
+  # #                 "DistributionDir": "build",
+  # #                 "BuildCommand": "npm run-script build",
+  # #                 "StartCommand": "npm run-script start"
+  # #               }
+  # #             },
+  # #             "providers": ["awscloudformation"]
+  # #           }' > amplify/.config/project-config.json
 
-  #     - name: Install Python Dependencies
-  #       if: steps.cache-pip.outputs.cache-hit != 'true'
-  #       run: |
-  #         cd infra/bedrock-code
-  #         python -m pip install --upgrade pip
-  #         if [ -f requirements.txt ]; then
-  #           pip install -r requirements.txt
-  #         else
-  #           echo "requirements.txt not found"
-  #           exit 1
-  #         fi
+  # #           # Create local-env-info.json
+  # #           echo '{
+  # #             "projectPath": "'$(pwd)'",
+  # #             "defaultEditor": "vscode",
+  # #             "envName": "'${AMPLIFY_ENV_NAME}'"
+  # #           }' > amplify/.config/local-env-info.json
 
-  #     - name: Lint Python
-  #       run: |
-  #         cd infra/bedrock-code
-  #         pylint *.py || (
-  #           echo "Python linting failed"
-  #           exit 1
-  #         )
-  #         black --check . || (
-  #           echo "Python formatting check failed"
-  #           exit 1
-  #         )
+  # #           # Initialize Amplify
+  # #           amplify init \
+  # #             --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+  # #             --envName ${{ env.AMPLIFY_ENV_NAME }} \
+  # #             --yes \
+  # #             --frontend javascript \
+  # #             --framework react \
+  # #             --config '{"SourceDir":"src","DistributionDir":"build","BuildCommand":"npm run-script build","StartCommand":"npm run-script start"}'
+  # #       - name: Fix Component File Names
+  # #         run: |
+  # #               mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
+  # #               mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
+  # #       - name: Build Frontend
+  # #         run: |
+  # #           npm run build
+  # #         env:
+  # #           CI: true
+  # #           REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
+  # #           REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
+  # #           REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
+  # #           REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
+  # #           REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
+
+  # #       - name: Deploy to Amplify
+  # #         run: |
+  # #           amplify push --yes
+  # #           amplify publish --yes || (
+  # #             echo "Amplify deployment failed"
+  # #             cat amplify/.config/project-config.json
+  # #             cat amplify/.config/local-env-info.json
+  # #             exit 1
+  # #           )
+                    
+
+  # # frontend:
+  # #   name: Deploy Frontend
+  # #   runs-on: ubuntu-latest
+  # #   needs: terraform
+  # #   if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    
+  # #   steps:
+  # #     - name: Checkout Repository
+  # #       uses: actions/checkout@v3
+
+  # #     - name: Setup Node.js
+  # #       uses: actions/setup-node@v3
+  # #       with:
+  # #         node-version: '18'
+      
+  # #     - name: Prepare npm cache
+  # #       run: |
+  # #         # Clear npm cache
+  # #         npm cache clean --force
+          
+  # #         # Remove existing node_modules and package-lock.json if they exist
+  # #         rm -rf node_modules package-lock.json
+          
+  # #         # Generate package-lock.json
+  # #         npm install
+          
+  # #         # Verify file creation
+  # #         ls -la
+  # #         cat package-lock.json || echo "package-lock.json not created"
+      
+  # #     - name: Install Dependencies
+  # #       run: |
+  # #         npm install
+  # #         npm install -D typescript @types/react @types/react-dom    
+
+  # #     - name: Configure AWS Credentials
+  # #       uses: aws-actions/configure-aws-credentials@v4
+  # #       with:
+  # #         role-to-assume: ${{ env.AWS_ROLE_ARN }}
+  # #         aws-region: ${{ env.AWS_REGION }}
+
+  # #     - name: Cache node modules
+  # #       uses: actions/cache@v3
+  # #       with:
+  # #         path: node_modules
+  # #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+  # #         restore-keys: |
+  # #           ${{ runner.os }}-node-
+
+  # #     # - name: Run Tests
+  # #     #   run: npm test
+  # #     #   env:
+  # #     #     CI: true
+
+  # #     # - name: Create .env file
+  # #     #   run: |
+  # #     #     cat > .env << EOL
+  # #     #     REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
+  # #     #     REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
+  # #     #     REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
+  # #     #     REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
+  # #     #     REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
+  # #     #     EOL
+
+  # #     # - name: Install AWS Amplify CLI
+  # #     #   run: npm install -g @aws-amplify/cli
+
+  # #     # - name: Configure Amplify
+  # #     #   run: |
+  # #     #     amplify init \
+  # #     #       --amplify "{\"envName\":\"${{ env.AMPLIFY_ENV_NAME }}\"}" \
+  # #     #       --yes
+  # #     #     amplify pull \
+  # #     #       --appId ${{ needs.terraform.outputs.amplify_app_id }} \
+  # #     #       --envName ${{ env.AMPLIFY_ENV_NAME }} \
+  # #     #       --yes
+
+  # #     - name: Create .env file
+  # #       run: |
+  # #         cat > .env << EOL
+  # #         REACT_APP_AWS_REGION=${{ env.AWS_REGION }}
+  # #         REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}
+  # #         REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}
+  # #         REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}
+  # #         REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}
+  # #         EOL
+  # #     - name: Install AWS Amplify CLI
+  # #       run: npm install -g @aws-amplify/cli
+        
+  # #     - name: Configure Amplify
+  # #       run: |
+  # #         amplify init \
+  # #           --name "aiadventuregame" \
+  # #           --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+  # #           --yes
+  # #         amplify pull \
+  # #           --appId "${{ needs.terraform.outputs.amplify_app_id }}" \
+  # #           --envName "${{ env.AMPLIFY_ENV_NAME }}" \
+  # #           --yes
+  # #       env:
+  # #         AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
+  # #         AWS_REGION: ${{ env.AWS_REGION }}  
+  # #         AMPLIFY_ENV_NAME: ${{ env.AMPLIFY_ENV_NAME }}
+  # #     - name: Build Frontend
+  # #       run: npm run build
+  # #       env:
+  # #         CI: true
+
+  # #     - name: Deploy to Amplify
+  # #       run: |
+  # #         amplify publish --yes || (
+  # #           echo "Amplify deployment failed"
+  # #           exit 1
+  # #         )
+
+  # # lint:
+  # #   name: Code Quality
+  # #   runs-on: ubuntu-latest
+    
+  # #   steps:
+  # #     - name: Checkout Repository
+  # #       uses: actions/checkout@v3
+
+  # #     - name: Setup Node.js
+  # #       uses: actions/setup-node@v3
+  # #       with:
+  # #         node-version: '18'
+  # #         cache: 'npm'
+
+  # #     - name: Cache node modules
+  # #       uses: actions/cache@v3
+  # #       with:
+  # #         path: node_modules
+  # #         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+  # #         restore-keys: |
+  # #           ${{ runner.os }}-node-
+
+  # #     - name: Install Dependencies
+  # #       run: npm ci
+
+  # #     - name: Lint JavaScript/React
+  # #       run: |
+  # #         npm run lint || (
+  # #           echo "JavaScript/React linting failed"
+  # #           exit 1
+  # #         )
+  # #         npm run format:check || (
+  # #           echo "Code formatting check failed"
+  # #           exit 1
+  # #         )
+
+  # #     - name: Setup Python
+  # #       uses: actions/setup-python@v4
+  # #       with:
+  # #         python-version: '3.9'
+  # #         cache: 'pip'
+
+  # #     - name: Cache Python packages
+  # #       uses: actions/cache@v3
+  # #       id: cache-pip
+  # #       with:
+  # #         path: ~/.cache/pip
+  # #         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+  # #         restore-keys: |
+  # #           ${{ runner.os }}-pip-
+
+  # #     - name: Install Python Dependencies
+  # #       if: steps.cache-pip.outputs.cache-hit != 'true'
+  # #       run: |
+  # #         cd infra/bedrock-code
+  # #         python -m pip install --upgrade pip
+  # #         if [ -f requirements.txt ]; then
+  # #           pip install -r requirements.txt
+  # #         else
+  # #           echo "requirements.txt not found"
+  # #           exit 1
+  # #         fi
+
+  # #     - name: Lint Python
+  # #       run: |
+  # #         cd infra/bedrock-code
+  # #         pylint *.py || (
+  # #           echo "Python linting failed"
+  # #           exit 1
+  # #         )
+  # #         black --check . || (
+  # #           echo "Python formatting check failed"
+  # #           exit 1
+  # #         )
 
 
