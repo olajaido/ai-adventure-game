@@ -338,9 +338,9 @@ resource "aws_lambda_function_url" "game_logic_url" {
     allow_credentials = true
     allow_origins     = ["*"]
     allow_methods     = ["*"]
-    allow_headers     = ["*"]  # Changed to allow all headers
-    expose_headers    = ["*"]  # Changed to expose all headers
-    max_age          = 86400
+    allow_headers     = ["*"] # Changed to allow all headers
+    expose_headers    = ["*"] # Changed to expose all headers
+    max_age           = 86400
   }
 }
 
