@@ -192,189 +192,77 @@ jobs:
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
-      - name: Configure Amplify and Hosting
+          - name: Prepare Amplify Deployment
+          run: |
+            # Verify AWS CLI configuration
+            aws configure list
+            
+            # Check Amplify CLI version
+            npm install -g @aws-amplify/cli
+            amplify --version
+            
+            # Debug AWS Account Information
+            aws sts get-caller-identity
+            
+            # Remove existing Amplify configuration
+            echo "Removing existing Amplify configuration..."
+            rm -rf amplify || true
+            mkdir -p amplify
+    
+      - name: Initialize Amplify Project
         run: |
-              # Ensure we're in the correct directory
-              pwd
-              ls -la
+            echo "Initializing Amplify project..."
+            amplify init \
+              --name aiadventuregame \
+              --appId d3s8tb811rq75i \
+              --envName dev \
+              --providers awscloudformation \
+              --yes \
+              || (
+                echo "Initial init failed. Attempting alternative initialization..."
+                amplify init \
+                  --name aiadventuregame \
+                  --envName dev \
+                  --providers awscloudformation \
+                  --yes
+              )
     
-              # Remove existing Amplify configuration
-              rm -rf amplify
+      - name: Configure Amplify Project
+        run: |
+            # Verify project initialization
+            echo "Checking Amplify environment..."
+            amplify env list
+            
+            # Add environment if needed
+            amplify env add dev --yes || true
+            
+            # Pull existing cloud configuration
+            echo "Pulling cloud configuration..."
+            amplify pull \
+              --appId d3s8tb811rq75i \
+              --envName dev \
+              --yes \
+              || echo "Pull may have partial issues"
     
-              # Create necessary directories
-              mkdir -p amplify/.config
-              mkdir -p amplify/backend
-              mkdir -p amplify/backend/hosting/amplifyhosting
-              mkdir -p amplify/backend/types
+      - name: Push Amplify Changes
+        run: |
+            # Push changes to cloud
+            echo "Pushing Amplify changes..."
+            amplify push --yes \
+              || (
+                echo "Push encountered issues. Attempting force push..."
+                amplify push --yes --force
+              )
     
-              # Create types directory configuration
-              echo '{}' > amplify/backend/types/amplify-dependent-resources-ref.d.ts
-              
-              # Create cli-inputs.json
-              echo '{
-                "projectName": "aiadventuregame",
-                "envName": "dev",
-                "defaultEditor": "vscode",
-                "frontend": {
-                  "javascript": {
-                    "config": {
-                      "BuildCommand": "npm run-script build",
-                      "StartCommand": "npm run-script start",
-                      "DistributionDir": "build",
-                      "SourceDir": "src"
-                    },
-                    "framework": "react"
-                  }
-                },
-                "hosting": {
-                  "amplifyhosting": {
-                    "type": "cicd",
-                    "appId": "d3s8tb811rq75i"
-                  }
-                }
-              }' > amplify/cli-inputs.json
-              
-              # Create project-config.json
-              echo '{
-                "projectName": "aiadventuregame",
-                "version": "3.1",
-                "frontend": "javascript",
-                "javascript": {
-                  "framework": "react",
-                  "config": {
-                    "SourceDir": "src",
-                    "DistributionDir": "build",
-                    "BuildCommand": "npm run-script build",
-                    "StartCommand": "npm run-script start"
-                  }
-                },
-                "providers": ["awscloudformation"]
-              }' > amplify/.config/project-config.json
-              
-              # Create local-env-info.json
-              echo '{
-                "projectPath": "'$(pwd)'",
-                "defaultEditor": "vscode",
-                "envName": "dev"
-              }' > amplify/.config/local-env-info.json
-              
-              # Create team-provider-info.json
-              echo '{
-                "dev": {
-                  "awscloudformation": {
-                    "AuthRoleName": "amplify-aiadventuregame-dev-role",
-                    "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                    "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                    "Region": "eu-west-2",
-                    "DeploymentBucketName": "aws-demo-game-terraform-state",
-                    "StackName": "amplify-aiadventuregame-dev",
-                    "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
-                    "AmplifyAppId": "d3s8tb811rq75i"
-                  },
-                  "categories": {
-                    "hosting": {
-                      "amplifyhosting": {
-                        "appId": "d3s8tb811rq75i",
-                        "type": "cicd"
-                      }
-                    }
-                  }
-                }
-              }' > amplify/team-provider-info.json
-              
-              # Create amplify-meta.json
-              echo '{
-                "providers": {
-                  "awscloudformation": {
-                    "AuthRoleName": "amplify-aiadventuregame-dev-role",
-                    "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                    "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                    "Region": "eu-west-2",
-                    "DeploymentBucketName": "aws-demo-game-terraform-state",
-                    "StackName": "amplify-aiadventuregame-dev",
-                    "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
-                    "AmplifyAppId": "d3s8tb811rq75i"
-                  }
-                },
-                "hosting": {
-                  "amplifyhosting": {
-                    "service": "amplifyhosting",
-                    "type": "cicd",
-                    "providerPlugin": "awscloudformation",
-                    "lastPushTimeStamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                    "output": {
-                      "appId": "d3s8tb811rq75i",
-                      "region": "eu-west-2",
-                      "hostingUrl": "https://dev.d3s8tb811rq75i.amplifyapp.com"
-                    }
-                  }
-                }
-              }' > amplify/backend/amplify-meta.json
-              
-              # Create hosting configuration
-              echo '{
-                "service": "amplifyhosting",
-                "providerPlugin": "awscloudformation",
-                "type": "cicd"
-              }' > amplify/backend/hosting/amplifyhosting/amplifyhosting-template.json
-              
-              # Create hosting parameters.json
-              echo '{
-                "pluginId": "awscloudformation",
-                "service": "amplifyhosting",
-                "type": "cicd",
-                "appId": "d3s8tb811rq75i"
-              }' > amplify/backend/hosting/amplifyhosting/parameters.json
-              
-              # Create backend-config.json
-              echo '{
-                "hosting": {
-                  "amplifyhosting": {
-                    "service": "amplifyhosting",
-                    "type": "cicd",
-                    "providerPlugin": "awscloudformation"
-                  }
-                }
-              }' > amplify/backend/backend-config.json
-    
-              # Attempt to initialize the project
-              echo "Initializing Amplify project..."
-              amplify init \
-                --appId d3s8tb811rq75i \
-                --envName dev \
-                --yes \
-                || (echo "Init failed, attempting alternative initialization" && 
-                    amplify init \
-                      --name aiadventuregame \
-                      --envName dev \
-                      --yes)
-    
-              # Try to add the environment
-              echo "Adding environment..."
-              amplify env add dev --yes \
-                || echo "Environment add may have failed"
-    
-              # Pull the existing project
-              echo "Pulling Amplify project..."
-              amplify pull \
-                --appId d3s8tb811rq75i \
-                --envName dev \
-                --yes \
-                || echo "Pull may have failed"
-    
-              # Push changes
-              echo "Pushing changes..."
-              amplify push --yes \
-                || echo "Push may have failed"
-    
-              # Publish the project
-              echo "Publishing project..."
-              amplify publish --yes \
-                || echo "Publish may have failed"
-    
-              # Generate diagnostic report
-              echo "Running Amplify diagnose..."
-              amplify diagnose --send-report
+      - name: Publish to Amplify Hosting
+        run: |
+            # Publish project
+            echo "Publishing to Amplify Hosting..."
+            amplify publish --yes \
+              || (
+                echo "Publish encountered issues. Generating diagnostic report..."
+                amplify diagnose --send-report
+              )
         
         env:
             AWS_REGION: eu-west-2
@@ -411,7 +299,15 @@ jobs:
               echo "Amplify meta:"
               cat amplify/backend/amplify-meta.json
               exit 1
-            )     
+            )
+      - name: Upload Diagnostic Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+              name: amplify-diagnose-report
+              path: /tmp/aiadventuregame/report-*.zip
+              retention-days: 5         
+               
   # frontend:
   #   name: Deploy Frontend
   #   runs-on: ubuntu-latest
