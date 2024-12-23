@@ -192,16 +192,17 @@ jobs:
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
-     
-          
-
       - name: Configure Amplify and Hosting
         run: |
               # Create necessary directories
               mkdir -p amplify/.config
               mkdir -p amplify/backend
               mkdir -p amplify/backend/hosting/amplifyhosting
-          
+              mkdir -p amplify/backend/types
+        
+              # Create types directory configuration
+              echo '{}' > amplify/backend/types/amplify-dependent-resources-ref.d.ts
+              
               # Create project-config.json
               echo '{
                 "projectName": "aiadventuregame",
@@ -230,16 +231,15 @@ jobs:
               echo '{
                 "service": "amplifyhosting",
                 "providerPlugin": "awscloudformation",
-                "type": "manual",
-                "lastPushTimeStamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"
+                "type": "cicd"
               }' > amplify/backend/hosting/amplifyhosting/amplifyhosting-template.json
         
-              # Create hosting parameters
+              # Create hosting parameters.json
               echo '{
                 "pluginId": "awscloudformation",
                 "service": "amplifyhosting",
-                "providerPlugin": "awscloudformation",
-                "type": "cicd"
+                "type": "cicd",
+                "appId": "d3s8tb811rq75i"
               }' > amplify/backend/hosting/amplifyhosting/parameters.json
           
               # Create amplify-meta.json
@@ -256,36 +256,12 @@ jobs:
                     "AmplifyAppId": "d3s8tb811rq75i"
                   }
                 },
-                "auth": {
-                  "cognitof8f24c0": {
-                    "service": "Cognito",
-                    "serviceType": "managed",
-                    "providerPlugin": "awscloudformation",
-                    "dependsOn": [],
-                    "frontendAuthConfig": {
-                      "socialProviders": [],
-                      "usernameAttributes": ["EMAIL"],
-                      "signupAttributes": ["EMAIL"],
-                      "passwordProtectionSettings": {
-                        "passwordPolicyMinLength": 8,
-                        "passwordPolicyCharacters": [
-                          "REQUIRES_LOWERCASE",
-                          "REQUIRES_NUMBERS",
-                          "REQUIRES_SYMBOLS",
-                          "REQUIRES_UPPERCASE"
-                        ]
-                      },
-                      "mfaConfiguration": "OFF",
-                      "mfaTypes": []
-                    }
-                  }
-                },
                 "hosting": {
                   "amplifyhosting": {
                     "service": "amplifyhosting",
                     "type": "cicd",
                     "providerPlugin": "awscloudformation",
-                    "lastPushTimeStamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                    "lastPushTimeStamp": "'$(TZ=UTC date "+%Y-%m-%dT%H:%M:%SZ")'",
                     "output": {
                       "appId": "d3s8tb811rq75i",
                       "region": "'${{ env.AWS_REGION }}'",
@@ -309,9 +285,6 @@ jobs:
                     "AmplifyAppId": "d3s8tb811rq75i"
                   },
                   "categories": {
-                    "auth": {
-                      "cognitof8f24c0": {}
-                    },
                     "hosting": {
                       "amplifyhosting": {
                         "appId": "d3s8tb811rq75i",
@@ -322,21 +295,33 @@ jobs:
                 }
               }' > amplify/team-provider-info.json
         
-              # Initialize Amplify
+              # Create backend-config.json
+              echo '{
+                "hosting": {
+                  "amplifyhosting": {
+                    "service": "amplifyhosting",
+                    "type": "cicd",
+                    "providerPlugin": "awscloudformation"
+                  }
+                }
+              }' > amplify/backend/backend-config.json
+        
+              # Initialize Amplify with hosting
               amplify init \
                 --amplify "{\"envName\":\"dev\"}" \
+                --frontend "{\"frontend\":\"javascript\",\"framework\":\"react\",\"config\":{\"SourceDir\":\"src\",\"DistributionDir\":\"build\",\"BuildCommand\":\"npm run-script build\",\"StartCommand\":\"npm run-script start\"}}" \
+                --providers "{\"awscloudformation\":{\"configLevel\":\"project\",\"useProfile\":true,\"profileName\":\"default\"}}" \
                 --yes
         
-              # Add hosting explicitly specifying the plugin
+              # Add hosting with headless mode
               echo "Adding hosting..."
               amplify add hosting \
-                --plugin awscloudformation \
-                --frontend-plugin amplify-frontend-javascript \
+                --headless \
                 --service amplifyhosting \
                 --providerPlugin awscloudformation \
+                --frontend javascript \
                 --appId d3s8tb811rq75i \
-                --type cicd \
-                --yes
+                --type cicd
   
       - name: Fix Component File Names
         run: |
