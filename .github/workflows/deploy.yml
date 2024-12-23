@@ -194,12 +194,15 @@ jobs:
 
       - name: Configure Amplify and Hosting
         run: |
+              # Remove existing Amplify configuration if needed
+              rm -rf amplify
+    
               # Create necessary directories
               mkdir -p amplify/.config
               mkdir -p amplify/backend
               mkdir -p amplify/backend/hosting/amplifyhosting
               mkdir -p amplify/backend/types
-        
+    
               # Create types directory configuration
               echo '{}' > amplify/backend/types/amplify-dependent-resources-ref.d.ts
               
@@ -329,20 +332,15 @@ jobs:
                   }
                 }
               }' > amplify/backend/backend-config.json
-        
-              # Pull existing project first
-              echo "Pulling existing project..."
-              amplify pull \
+    
+              # Initialize the project forcefully
+              amplify init \
                 --appId d3s8tb811rq75i \
                 --envName dev \
+                --resetDefault \
                 --yes
-        
-              # Add hosting with non-interactive mode
-              echo "Adding hosting..."
-              amplify add hosting \
-                --fromConfig \
-                --config "{\"frontend\":\"javascript\",\"hosting\":{\"amplifyhosting\":{\"type\":\"cicd\",\"appId\":\"d3s8tb811rq75i\"}}}" \
-                --yes
+              echo "Pushing changes..."
+              amplify push --yes
         
         env:
             AWS_REGION: eu-west-2
