@@ -234,8 +234,8 @@ jobs:
                     "AuthRoleName": "amplify-aiadventuregame-dev-role",
                     "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
                     "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                    "Region": "'${{ env.AWS_REGION }}'",
-                    "DeploymentBucketName": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                    "Region": "eu-west-2",
+                    "DeploymentBucketName": "aws-demo-game-terraform-state",
                     "StackName": "amplify-aiadventuregame-dev",
                     "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
                     "AmplifyAppId": "d3s8tb811rq75i"
@@ -251,12 +251,12 @@ jobs:
                 }
               }' > amplify/team-provider-info.json
         
-              # Initialize Amplify first (with assumed role configuration)
+              # Initialize Amplify with temporary credentials
               echo "Initializing Amplify..."
               amplify init \
                 --amplify "{\"envName\":\"dev\"}" \
                 --frontend "{\"frontend\":\"javascript\",\"framework\":\"react\",\"config\":{\"SourceDir\":\"src\",\"DistributionDir\":\"build\",\"BuildCommand\":\"npm run-script build\",\"StartCommand\":\"npm run-script start\"}}" \
-                --providers "{\"awscloudformation\":{\"configLevel\":\"project\",\"useProfile\":false,\"region\":\"${{ env.AWS_REGION }}\"}}" \
+                --providers "{\"awscloudformation\":{\"configLevel\":\"project\",\"useProfile\":false,\"accessKeyId\":\"$AWS_ACCESS_KEY_ID\",\"secretAccessKey\":\"$AWS_SECRET_ACCESS_KEY\",\"sessionToken\":\"$AWS_SESSION_TOKEN\",\"region\":\"$AWS_REGION\"}}" \
                 --yes
         
               # Create amplify-meta.json
@@ -266,8 +266,8 @@ jobs:
                     "AuthRoleName": "amplify-aiadventuregame-dev-role",
                     "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
                     "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                    "Region": "'${{ env.AWS_REGION }}'",
-                    "DeploymentBucketName": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                    "Region": "eu-west-2",
+                    "DeploymentBucketName": "aws-demo-game-terraform-state",
                     "StackName": "amplify-aiadventuregame-dev",
                     "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
                     "AmplifyAppId": "d3s8tb811rq75i"
@@ -281,7 +281,7 @@ jobs:
                     "lastPushTimeStamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
                     "output": {
                       "appId": "d3s8tb811rq75i",
-                      "region": "'${{ env.AWS_REGION }}'",
+                      "region": "eu-west-2",
                       "hostingUrl": "https://dev.d3s8tb811rq75i.amplifyapp.com"
                     }
                   }
@@ -323,6 +323,12 @@ jobs:
                 --frontend javascript \
                 --appId d3s8tb811rq75i \
                 --type cicd
+        
+        env:
+            AWS_REGION: eu-west-2
+            AWS_ROLE_ARN: arn:aws:iam::436549840164:role/github_action_role
+            AWS_BACKEND_BUCKET: aws-demo-game-terraform-state
+            AMPLIFY_ENV_NAME: dev
 
       - name: Fix Component File Names
         run: |
