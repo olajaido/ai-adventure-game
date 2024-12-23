@@ -986,8 +986,9 @@ jobs:
 
       - name: Deploy to Amplify
         run: |
+            APP_ID=$(terraform -chdir=./infra output -raw amplify_app_id)
             aws amplify start-deployment \
-              --app-id ${{ needs.terraform.outputs.amplify_app_id }} \
+              --app-id $APP_ID \
               --branch-name dev \
               --source-url build/
 #  frontend:
