@@ -192,8 +192,8 @@ jobs:
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
-          - name: Prepare Amplify Deployment
-          run: |
+      - name: Prepare Amplify Deployment
+        run: |
             # Verify AWS CLI configuration
             aws configure list
             
