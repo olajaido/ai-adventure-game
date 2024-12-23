@@ -197,16 +197,16 @@ jobs:
               # Ensure we're in the correct directory
               pwd
               ls -la
-        
-              # Remove existing Amplify configuration if needed
+    
+              # Remove existing Amplify configuration
               rm -rf amplify
-        
+    
               # Create necessary directories
               mkdir -p amplify/.config
               mkdir -p amplify/backend
               mkdir -p amplify/backend/hosting/amplifyhosting
               mkdir -p amplify/backend/types
-        
+    
               # Create types directory configuration
               echo '{}' > amplify/backend/types/amplify-dependent-resources-ref.d.ts
               
@@ -336,30 +336,43 @@ jobs:
                   }
                 }
               }' > amplify/backend/backend-config.json
-        
-              # Debug: List contents of amplify directory
-              echo "Amplify directory contents:"
-              find amplify -type f
-        
+    
               # Attempt to initialize the project
               echo "Initializing Amplify project..."
               amplify init \
                 --appId d3s8tb811rq75i \
                 --envName dev \
-                --yes || true
-        
-              # Attempt to pull the project
+                --yes \
+                || (echo "Init failed, attempting alternative initialization" && 
+                    amplify init \
+                      --name aiadventuregame \
+                      --envName dev \
+                      --yes)
+    
+              # Try to add the environment
+              echo "Adding environment..."
+              amplify env add dev --yes \
+                || echo "Environment add may have failed"
+    
+              # Pull the existing project
               echo "Pulling Amplify project..."
               amplify pull \
                 --appId d3s8tb811rq75i \
                 --envName dev \
-                --yes || true
-        
+                --yes \
+                || echo "Pull may have failed"
+    
               # Push changes
               echo "Pushing changes..."
-              amplify push --yes || true
-        
-              # Diagnose if still failing
+              amplify push --yes \
+                || echo "Push may have failed"
+    
+              # Publish the project
+              echo "Publishing project..."
+              amplify publish --yes \
+                || echo "Publish may have failed"
+    
+              # Generate diagnostic report
               echo "Running Amplify diagnose..."
               amplify diagnose --send-report
         
