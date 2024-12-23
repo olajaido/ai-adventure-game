@@ -977,23 +977,82 @@ jobs:
 
      - name: Configure Amplify
        run: |
+           # Create base directories
+           mkdir -p amplify/.config
+           mkdir -p amplify/backend
+           mkdir -p amplify/backend/hosting/amplifyhosting
+       
+           # Create project-config.json
+           echo '{
+             "projectName": "aiadventuregame",
+             "version": "3.1",
+             "frontend": "javascript",
+             "javascript": {
+               "framework": "react",
+               "config": {
+                 "SourceDir": "src",
+                 "DistributionDir": "build",
+                 "BuildCommand": "npm run-script build",
+                 "StartCommand": "npm run-script start"
+               }
+             },
+             "providers": ["awscloudformation"]
+           }' > amplify/.config/project-config.json
+       
+           # Create local-env-info.json
+           echo '{
+             "projectPath": "'$(pwd)'",
+             "defaultEditor": "vscode",
+             "envName": "dev"
+           }' > amplify/.config/local-env-info.json
+       
+           # Create amplify-meta.json
+           echo '{
+             "providers": {
+               "awscloudformation": {
+                 "AuthRoleName": "amplify-aiadventuregame-dev-role",
+                 "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                 "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                 "Region": "'$AWS_REGION'",
+                 "DeploymentBucketName": "'$AWS_BACKEND_BUCKET'",
+                 "StackName": "amplify-aiadventuregame-dev",
+                 "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+                 "AmplifyAppId": "d20eknb0yurkis"
+               }
+             }
+           }' > amplify/backend/amplify-meta.json
+       
+           # Create team-provider-info.json
+           echo '{
+             "dev": {
+               "awscloudformation": {
+                 "AuthRoleName": "amplify-aiadventuregame-dev-role",
+                 "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                 "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                 "Region": "'$AWS_REGION'",
+                 "DeploymentBucketName": "'$AWS_BACKEND_BUCKET'",
+                 "StackName": "amplify-aiadventuregame-dev",
+                 "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+                 "AmplifyAppId": "d20eknb0yurkis"
+               }
+             }
+           }' > amplify/team-provider-info.json
+       
+           # Initialize and configure
            amplify init \
              --frontend javascript \
              --provider aws \
              --projectName aiadventuregame \
-             --envName dev \
-             --defaultEditor vscode \
-             --buildType javascript \
-             --framework react \
-             --srcDir src \
-             --distDir build \
-             --buildCommand "npm run-script build" \
-             --startCommand "npm run-script start" \
-             --accessKeyId $AWS_ACCESS_KEY_ID \
-             --secretAccessKey $AWS_SECRET_ACCESS_KEY \
-             --region $AWS_REGION \
-             --appId d20eknb0yurkis \
              --yes
+       
+           # Add hosting configuration
+           amplify add hosting \
+             --platform aws \
+             --type manual \
+             --yes
+       
+           # Push changes
+           amplify push --yes
 
      - name: Fix Component File Names
        run: |
