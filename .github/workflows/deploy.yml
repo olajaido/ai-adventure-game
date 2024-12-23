@@ -977,17 +977,23 @@ jobs:
 
      - name: Configure Amplify
        run: |
-           amplify pull d20eknb0yurkis \
-             --appId d20eknb0yurkis \
+           amplify init \
+             --frontend javascript \
+             --provider aws \
+             --projectName aiadventuregame \
              --envName dev \
+             --defaultEditor vscode \
+             --buildType javascript \
+             --framework react \
+             --srcDir src \
+             --distDir build \
+             --buildCommand "npm run-script build" \
+             --startCommand "npm run-script start" \
+             --accessKeyId $AWS_ACCESS_KEY_ID \
+             --secretAccessKey $AWS_SECRET_ACCESS_KEY \
+             --region $AWS_REGION \
+             --appId d20eknb0yurkis \
              --yes
-       
-           amplify add hosting \
-             --platform aws \
-             --type manual \
-             --yes
-       
-           amplify push --yes
 
      - name: Fix Component File Names
        run: |
