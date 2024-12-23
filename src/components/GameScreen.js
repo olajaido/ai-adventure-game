@@ -144,148 +144,339 @@
 
 // export default GameScreen;
 
+// import React, { useState, useEffect, useCallback } from 'react';
+// import { generateClient } from 'aws-amplify/api';
+// import '../styles/GameScreen.css';
+
+// const api = generateClient();
+
+// function GameScreen() {
+//     const [currentScene, setCurrentScene] = useState(null);
+//     const [choices, setChoices] = useState([]);
+//     const [gameHistory, setGameHistory] = useState([]);
+//     const [loading, setLoading] = useState(true);
+//     const [gameStats, setGameStats] = useState({
+//         health: 100,
+//         experience: 0,
+//         level: 1
+//     });
+
+//     const generateNewScene = useCallback(async () => {
+//         try {
+//             const response = await api.post('gameApi', '/generate-story', {
+//                 body: {
+//                     current_scene: 'start',
+//                     player_choice: null,
+//                 },
+//             });
+
+//             setCurrentScene(response.scene);
+//             setChoices(response.choices);
+//             setLoading(false);
+//         } catch (error) {
+//             console.error('Error generating new scene:', error);
+//             setLoading(false);
+//         }
+//     }, []);
+
+//     const loadGameState = useCallback(async () => {
+//         try {
+//             const response = await api.get('gameApi', '/game-state');
+//             setCurrentScene(response.currentScene);
+//             setGameHistory(response.playerChoices);
+//             setGameStats(response.stats || {
+//                 health: 100,
+//                 experience: 0,
+//                 level: 1
+//             });
+            
+//             if (!response.currentScene) {
+//                 generateNewScene();
+//             } else {
+//                 setLoading(false);
+//             }
+//         } catch (error) {
+//             console.error('Error loading game state:', error);
+//             setLoading(false);
+//         }
+//     }, [generateNewScene]);
+
+//     useEffect(() => {
+//         loadGameState();
+//     }, [loadGameState]);
+
+//     const makeChoice = async (choice) => {
+//         try {
+//             setLoading(true);
+//             const response = await api.post('gameApi', '/generate-story', {
+//                 body: {
+//                     current_scene: currentScene,
+//                     player_choice: choice,
+//                 },
+//             });
+
+//             setCurrentScene(response.scene);
+//             setChoices(response.choices);
+            
+//             const newStats = {
+//                 ...gameStats,
+//                 experience: gameStats.experience + 10,
+//                 health: Math.max(0, Math.min(100, gameStats.health + (response.healthChange || 0)))
+//             };
+
+//             if (newStats.experience >= newStats.level * 100) {
+//                 newStats.level += 1;
+//             }
+
+//             setGameStats(newStats);
+            
+//             await api.post('gameApi', '/save-game', {
+//                 body: {
+//                     currentScene: response.scene,
+//                     playerChoices: [...gameHistory, choice],
+//                     stats: newStats
+//                 },
+//             });
+
+//             setGameHistory([...gameHistory, choice]);
+//             setLoading(false);
+//         } catch (error) {
+//             console.error('Error processing choice:', error);
+//             setLoading(false);
+//         }
+//     };
+
+//     if (loading) {
+//         return <div className="loading">Loading your adventure...</div>;
+//     }
+
+//     return (
+//         <div className="game-screen">
+//             <div className="game-stats">
+//                 <div className="stat">❤️ Health: {gameStats.health}</div>
+//                 <div className="stat">⭐ Level: {gameStats.level}</div>
+//                 <div className="stat">📈 XP: {gameStats.experience}</div>
+//             </div>
+//             <div className="scene-container">
+//                 <div className="scene-description">
+//                     <p>{currentScene}</p>
+//                 </div>
+//                 <div className="choices">
+//                     {choices.map((choice, index) => (
+//                         <button
+//                             key={index}
+//                             onClick={() => makeChoice(choice)}
+//                             className="choice-button"
+//                             disabled={loading}
+//                         >
+//                             {choice}
+//                         </button>
+//                     ))}
+//                 </div>
+//             </div>
+//             <div className="game-history">
+//                 <h3>Adventure Log</h3>
+//                 <div className="history-list">
+//                     {gameHistory.map((choice, index) => (
+//                         <div key={index} className="history-item">
+//                             {choice}
+//                         </div>
+//                     ))}
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// }
+
+// export default GameScreen;
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { generateClient } from 'aws-amplify/api';
+import { get, post } from 'aws-amplify/api';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import '../styles/GameScreen.css';
 
-const api = generateClient();
-
 function GameScreen() {
-    const [currentScene, setCurrentScene] = useState(null);
-    const [choices, setChoices] = useState([]);
-    const [gameHistory, setGameHistory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [gameStats, setGameStats] = useState({
-        health: 100,
-        experience: 0,
-        level: 1
-    });
+   const [currentScene, setCurrentScene] = useState(null);
+   const [choices, setChoices] = useState([]);
+   const [gameHistory, setGameHistory] = useState([]);
+   const [loading, setLoading] = useState(true);
+   const [gameStats, setGameStats] = useState({
+       health: 100,
+       experience: 0,
+       level: 1
+   });
 
-    const generateNewScene = useCallback(async () => {
-        try {
-            const response = await api.post('gameApi', '/generate-story', {
-                body: {
-                    current_scene: 'start',
-                    player_choice: null,
-                },
-            });
+   const makeApiCall = useCallback(async (method, path, body = null) => {
+       try {
+           const { tokens } = await fetchAuthSession();
+           
+           const requestConfig = {
+               apiName: 'gameApi',
+               path: path.startsWith('/') ? path.slice(1) : path,
+               options: {
+                   headers: {
+                       'Authorization': `Bearer ${tokens.idToken.toString()}`,
+                       'Content-Type': 'application/json'
+                   }
+               }
+           };
 
-            setCurrentScene(response.scene);
-            setChoices(response.choices);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error generating new scene:', error);
-            setLoading(false);
-        }
-    }, []);
+           if (body) {
+               requestConfig.options.body = JSON.stringify(body);
+           }
 
-    const loadGameState = useCallback(async () => {
-        try {
-            const response = await api.get('gameApi', '/game-state');
-            setCurrentScene(response.currentScene);
-            setGameHistory(response.playerChoices);
-            setGameStats(response.stats || {
-                health: 100,
-                experience: 0,
-                level: 1
-            });
-            
-            if (!response.currentScene) {
-                generateNewScene();
-            } else {
-                setLoading(false);
-            }
-        } catch (error) {
-            console.error('Error loading game state:', error);
-            setLoading(false);
-        }
-    }, [generateNewScene]);
+           console.log('Request Config:', requestConfig);
 
-    useEffect(() => {
-        loadGameState();
-    }, [loadGameState]);
+           const response = await (method === 'GET' ? get(requestConfig) : post(requestConfig));
+           console.log('Raw Response:', response);
+           
+           return response;
+       } catch (error) {
+           console.error('API Call Error:', {
+               message: error.message,
+               status: error.status,
+               name: error.name,
+               details: error
+           });
+           throw error;
+       }
+   }, []);
 
-    const makeChoice = async (choice) => {
-        try {
-            setLoading(true);
-            const response = await api.post('gameApi', '/generate-story', {
-                body: {
-                    current_scene: currentScene,
-                    player_choice: choice,
-                },
-            });
+   const generateNewScene = useCallback(async () => {
+       try {
+           const response = await makeApiCall('POST', 'generate-story', {
+               current_scene: 'start',
+               player_choice: null,
+           });
 
-            setCurrentScene(response.scene);
-            setChoices(response.choices);
-            
-            const newStats = {
-                ...gameStats,
-                experience: gameStats.experience + 10,
-                health: Math.max(0, Math.min(100, gameStats.health + (response.healthChange || 0)))
-            };
+           console.log('Generate Scene Response:', response);
+           if (response?.body) {
+               const data = JSON.parse(response.body);
+               setCurrentScene(data.scene);
+               setChoices(data.choices || []);
+           }
+           setLoading(false);
+       } catch (error) {
+           console.error('Error generating new scene:', error);
+           setLoading(false);
+       }
+   }, [makeApiCall]);
 
-            if (newStats.experience >= newStats.level * 100) {
-                newStats.level += 1;
-            }
+   const loadGameState = useCallback(async () => {
+       try {
+           const response = await makeApiCall('GET', 'game-state');
+           console.log('Load Game State Response:', response);
+           
+           if (response?.body) {
+               const data = JSON.parse(response.body);
+               setCurrentScene(data.currentScene);
+               setGameHistory(data.playerChoices || []);
+               setGameStats(data.stats || {
+                   health: 100,
+                   experience: 0,
+                   level: 1
+               });
+               
+               if (!data.currentScene) {
+                   generateNewScene();
+               } else {
+                   setLoading(false);
+               }
+           } else {
+               generateNewScene();
+           }
+       } catch (error) {
+           console.error('Error loading game state:', error);
+           setLoading(false);
+       }
+   }, [makeApiCall, generateNewScene]);
 
-            setGameStats(newStats);
-            
-            await api.post('gameApi', '/save-game', {
-                body: {
-                    currentScene: response.scene,
-                    playerChoices: [...gameHistory, choice],
-                    stats: newStats
-                },
-            });
+   useEffect(() => {
+       loadGameState();
+   }, [loadGameState]);
 
-            setGameHistory([...gameHistory, choice]);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error processing choice:', error);
-            setLoading(false);
-        }
-    };
+   const makeChoice = async (choice) => {
+       try {
+           setLoading(true);
+           
+           const response = await makeApiCall('POST', 'generate-story', {
+               current_scene: currentScene,
+               player_choice: choice,
+           });
 
-    if (loading) {
-        return <div className="loading">Loading your adventure...</div>;
-    }
+           console.log('Make Choice Response:', response);
+           if (response?.body) {
+               const data = JSON.parse(response.body);
+               setCurrentScene(data.scene);
+               setChoices(data.choices || []);
+               
+               const newStats = {
+                   ...gameStats,
+                   experience: gameStats.experience + 10,
+                   health: Math.max(0, Math.min(100, gameStats.health + (data.healthChange || 0)))
+               };
 
-    return (
-        <div className="game-screen">
-            <div className="game-stats">
-                <div className="stat">❤️ Health: {gameStats.health}</div>
-                <div className="stat">⭐ Level: {gameStats.level}</div>
-                <div className="stat">📈 XP: {gameStats.experience}</div>
-            </div>
-            <div className="scene-container">
-                <div className="scene-description">
-                    <p>{currentScene}</p>
-                </div>
-                <div className="choices">
-                    {choices.map((choice, index) => (
-                        <button
-                            key={index}
-                            onClick={() => makeChoice(choice)}
-                            className="choice-button"
-                            disabled={loading}
-                        >
-                            {choice}
-                        </button>
-                    ))}
-                </div>
-            </div>
-            <div className="game-history">
-                <h3>Adventure Log</h3>
-                <div className="history-list">
-                    {gameHistory.map((choice, index) => (
-                        <div key={index} className="history-item">
-                            {choice}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
+               if (newStats.experience >= newStats.level * 100) {
+                   newStats.level += 1;
+               }
+
+               setGameStats(newStats);
+               
+               await makeApiCall('POST', 'save-game', {
+                   currentScene: data.scene,
+                   playerChoices: [...gameHistory, choice],
+                   stats: newStats
+               });
+
+               setGameHistory([...gameHistory, choice]);
+           }
+           setLoading(false);
+       } catch (error) {
+           console.error('Error processing choice:', error);
+           setLoading(false);
+       }
+   };
+
+   if (loading) {
+       return <div className="loading">Loading your adventure...</div>;
+   }
+
+   return (
+       <div className="game-screen">
+           <div className="game-stats">
+               <div className="stat">❤️ Health: {gameStats.health}</div>
+               <div className="stat">⭐ Level: {gameStats.level}</div>
+               <div className="stat">📈 XP: {gameStats.experience}</div>
+           </div>
+           <div className="scene-container">
+               <div className="scene-description">
+                   <p>{currentScene}</p>
+               </div>
+               <div className="choices">
+                   {choices.map((choice, index) => (
+                       <button
+                           key={index}
+                           onClick={() => makeChoice(choice)}
+                           className="choice-button"
+                           disabled={loading}
+                       >
+                           {choice}
+                       </button>
+                   ))}
+               </div>
+           </div>
+           <div className="game-history">
+               <h3>Adventure Log</h3>
+               <div className="history-list">
+                   {gameHistory.map((choice, index) => (
+                       <div key={index} className="history-item">
+                           {choice}
+                       </div>
+                   ))}
+               </div>
+           </div>
+       </div>
+   );
 }
 
 export default GameScreen;

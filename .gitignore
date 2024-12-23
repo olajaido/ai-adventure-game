@@ -47,6 +47,8 @@ team-provider-info.json
 *.swp
 *.swo
 
+out/amplify-pkg-linux-arm64
+
 #amplify-do-not-edit-begin
 amplify/\#current-cloud-backend
 amplify/.config/local-*
@@ -68,4 +70,6 @@ amplifytools.xcconfig
 .secret-*
 **.sample
 #amplify-do-not-edit-end
-out/amplify-pkg-linux-arm64
+
+*.zip
+.vscode/

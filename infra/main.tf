@@ -317,6 +317,19 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/lambda.zip"
 }
 # Lambda Function URL
+# resource "aws_lambda_function_url" "game_logic_url" {
+#   function_name      = aws_lambda_function.game_logic.function_name
+#   authorization_type = "AWS_IAM"
+
+#   cors {
+#     allow_credentials = true
+#     allow_origins     = ["*"]
+#     allow_methods     = ["*"]
+#     allow_headers     = ["date", "keep-alive", "authorization"]
+#     expose_headers    = ["keep-alive", "date"]
+#     max_age           = 86400
+#   }
+# }
 resource "aws_lambda_function_url" "game_logic_url" {
   function_name      = aws_lambda_function.game_logic.function_name
   authorization_type = "AWS_IAM"
@@ -325,9 +338,9 @@ resource "aws_lambda_function_url" "game_logic_url" {
     allow_credentials = true
     allow_origins     = ["*"]
     allow_methods     = ["*"]
-    allow_headers     = ["date", "keep-alive", "authorization"]
-    expose_headers    = ["keep-alive", "date"]
-    max_age           = 86400
+    allow_headers     = ["*"]  # Changed to allow all headers
+    expose_headers    = ["*"]  # Changed to expose all headers
+    max_age          = 86400
   }
 }
 
