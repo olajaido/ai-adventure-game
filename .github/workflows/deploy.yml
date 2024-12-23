@@ -985,9 +985,11 @@ jobs:
           CI: true
 
       - name: Deploy to Amplify
+        env:
+            AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
         run: |
             aws amplify start-deployment \
-              --app-id ${{ needs.terraform.outputs.amplify_app_id }} \
+              --app-id "${AMPLIFY_APP_ID}" \
               --branch-name dev \
               --source-url build/
 #  frontend:
