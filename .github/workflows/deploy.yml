@@ -977,7 +977,15 @@ jobs:
       - name: Fix Component File Names
         run: |
           mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
-          mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true    
+          mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
+      - name: Prepare Build Environment
+        run: |
+            npm cache clean --force
+            rm -rf node_modules package-lock.json
+            npm install
+            npm run build
+        env:
+            CI: true       
 
       - name: Build Frontend
         run: npm run build
