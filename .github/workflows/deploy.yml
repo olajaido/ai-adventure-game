@@ -986,21 +986,20 @@ jobs:
 
       - name: Deploy to Amplify
         env:
-            AMPLIFY_APP_ID: d20eknb0yurkis  # Hardcoding for now since we know it
-          
+          AMPLIFY_APP_ID: d20eknb0yurkis
         run: |
-            # Create a deployment ZIP
-            cd build && zip -r ../deploy.zip .
-            cd ..
-            
-            # Upload to S3
-            aws s3 cp deploy.zip s3://${{ env.AWS_BACKEND_BUCKET }}/deployments/
-            
-            # Start Amplify deployment
-            aws amplify start-deployment \
-              --app-id "${AMPLIFY_APP_ID}" \
-              --branch-name dev \
-              --source-url "s3://${{ env.AWS_BACKEND_BUCKET }}/deployments/deploy.zip"
+          # Create a deployment ZIP
+          cd build && zip -r ../deploy.zip .
+          cd ..
+          
+          # Upload to S3
+          aws s3 cp deploy.zip s3://ai-adventure-game-assets-dev/
+          
+          # Start Amplify deployment
+          aws amplify start-deployment \
+            --app-id "${AMPLIFY_APP_ID}" \
+            --branch-name dev \
+            --source-url "s3://ai-adventure-game-assets-dev/deploy.zip"
 #  frontend:
 #    name: Deploy Frontend
 #    runs-on: ubuntu-latest
