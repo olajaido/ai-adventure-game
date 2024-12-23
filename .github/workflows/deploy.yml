@@ -194,15 +194,19 @@ jobs:
 
       - name: Configure Amplify and Hosting
         run: |
+              # Ensure we're in the correct directory
+              pwd
+              ls -la
+        
               # Remove existing Amplify configuration if needed
               rm -rf amplify
-    
+        
               # Create necessary directories
               mkdir -p amplify/.config
               mkdir -p amplify/backend
               mkdir -p amplify/backend/hosting/amplifyhosting
               mkdir -p amplify/backend/types
-    
+        
               # Create types directory configuration
               echo '{}' > amplify/backend/types/amplify-dependent-resources-ref.d.ts
               
@@ -332,15 +336,32 @@ jobs:
                   }
                 }
               }' > amplify/backend/backend-config.json
-    
-              # Initialize the project forcefully
+        
+              # Debug: List contents of amplify directory
+              echo "Amplify directory contents:"
+              find amplify -type f
+        
+              # Attempt to initialize the project
+              echo "Initializing Amplify project..."
               amplify init \
                 --appId d3s8tb811rq75i \
                 --envName dev \
-                --resetDefault \
-                --yes
+                --yes || true
+        
+              # Attempt to pull the project
+              echo "Pulling Amplify project..."
+              amplify pull \
+                --appId d3s8tb811rq75i \
+                --envName dev \
+                --yes || true
+        
+              # Push changes
               echo "Pushing changes..."
-              amplify push --yes
+              amplify push --yes || true
+        
+              # Diagnose if still failing
+              echo "Running Amplify diagnose..."
+              amplify diagnose --send-report
         
         env:
             AWS_REGION: eu-west-2
