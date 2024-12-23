@@ -977,22 +977,17 @@ jobs:
 
      - name: Configure Amplify
        run: |
-         amplify init \
-           --frontend javascript \
-           --provider aws \
-           --projectName aiadventuregame \
-           --envName dev \
-           --appId d20eknb0yurkis \
-           --yes
-
-         amplify add hosting \
-           --platform aws \
-           --type manual \
-           --appId d20eknb0yurkis \
-           --envName dev \
-           --yes
-
-         amplify push --yes
+           amplify pull d20eknb0yurkis \
+             --appId d20eknb0yurkis \
+             --envName dev \
+             --yes
+       
+           amplify add hosting \
+             --platform aws \
+             --type manual \
+             --yes
+       
+           amplify push --yes
 
      - name: Fix Component File Names
        run: |
