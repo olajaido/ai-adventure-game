@@ -196,6 +196,7 @@ jobs:
         run: |
             # Create necessary directories
             mkdir -p amplify/.config
+            mkdir -p amplify/backend
   
             # Create project-config.json
             echo '{
@@ -221,14 +222,66 @@ jobs:
               "envName": "dev"
             }' > amplify/.config/local-env-info.json
   
-            # Create backend directory
-            mkdir -p amplify/backend
+            # Create amplify-meta.json
+            echo '{
+              "providers": {
+                "awscloudformation": {
+                  "AuthRoleName": "amplify-aiadventuregame-dev-role",
+                  "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                  "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "DeploymentBucketName": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                  "StackName": "amplify-aiadventuregame-dev",
+                  "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+                  "AmplifyAppId": "d3s8tb811rq75i"
+                }
+              },
+              "auth": {
+                "cognitof8f24c0": {
+                  "service": "Cognito",
+                  "serviceType": "managed",
+                  "providerPlugin": "awscloudformation",
+                  "dependsOn": [],
+                  "frontendAuthConfig": {
+                    "socialProviders": [],
+                    "usernameAttributes": ["EMAIL"],
+                    "signupAttributes": ["EMAIL"],
+                    "passwordProtectionSettings": {
+                      "passwordPolicyMinLength": 8,
+                      "passwordPolicyCharacters": [
+                        "REQUIRES_LOWERCASE",
+                        "REQUIRES_NUMBERS",
+                        "REQUIRES_SYMBOLS",
+                        "REQUIRES_UPPERCASE"
+                      ]
+                    },
+                    "mfaConfiguration": "OFF",
+                    "mfaTypes": []
+                  }
+                }
+              }
+            }' > amplify/backend/amplify-meta.json
   
-            # Configure Amplify
-            amplify pull \
-              --appId d3s8tb811rq75i \
-              --envName dev \
-              --yes
+            # Create team-provider-info.json
+            echo '{
+              "dev": {
+                "awscloudformation": {
+                  "AuthRoleName": "amplify-aiadventuregame-dev-role",
+                  "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                  "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                  "Region": "'${{ env.AWS_REGION }}'",
+                  "DeploymentBucketName": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                  "StackName": "amplify-aiadventuregame-dev",
+                  "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+                  "AmplifyAppId": "d3s8tb811rq75i"
+                },
+                "categories": {
+                  "auth": {
+                    "cognitof8f24c0": {}
+                  }
+                }
+              }
+            }' > amplify/team-provider-info.json
   
       - name: Fix Component File Names
         run: |
@@ -248,13 +301,16 @@ jobs:
 
       - name: Deploy to Amplify
         run: |
-            amplify push --yes
             amplify publish --yes || (
               echo "Amplify deployment failed"
+              echo "Directory structure:"
+              ls -R amplify/
               echo "Project config:"
               cat amplify/.config/project-config.json
               echo "Local env info:"
               cat amplify/.config/local-env-info.json
+              echo "Amplify meta:"
+              cat amplify/backend/amplify-meta.json
               exit 1
             )     
   # frontend:
