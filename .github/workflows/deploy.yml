@@ -200,6 +200,10 @@ jobs:
           amplify pull --appId d3s8tb811rq75i \
             --envName dev \
             --yes
+      - name: Fix Component File Names
+        run: |
+          mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
+          mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true      
 
       - name: Build Frontend
         run: |
