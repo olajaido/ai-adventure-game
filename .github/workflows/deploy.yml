@@ -947,135 +947,181 @@ jobs:
          echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
 
  frontend:
-   name: Deploy Frontend
-   runs-on: ubuntu-latest
-   needs: terraform
-   if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: terraform
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
 
-   steps:
-     - uses: actions/checkout@v3
-     - uses: actions/setup-node@v3
-       with:
-         node-version: '18'
-     - uses: aws-actions/configure-aws-credentials@v4
-       with:
-         role-to-assume: ${{ env.AWS_ROLE_ARN }}
-         aws-region: ${{ env.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-     - name: Install Dependencies
-       run: |
-         npm install
-         npm install -g @aws-amplify/cli
+      - name: Install Dependencies
+        run: npm ci
 
-     - name: Create .env file
-       run: |
-         echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
-         echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
-         echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
-         echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
-         echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
+      - name: Create .env
+        run: |
+          echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
+          echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
+          echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
+          echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
+          echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
-     - name: Configure Amplify
-       run: |
-           # Create base directories
-           mkdir -p amplify/.config
-           mkdir -p amplify/backend
-           mkdir -p amplify/backend/hosting/amplifyhosting
+      - name: Build Frontend
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Deploy to Amplify
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -d "{
+              \"zipFile\": \"$(base64 -w 0 <(cd build && zip -r - .))\"
+            }" \
+            "https://amplify.${{ env.AWS_REGION }}.amazonaws.com/v1/apps/${{ needs.terraform.outputs.amplify_app_id }}/branches/dev/deployments" || (
+              echo "Amplify deployment failed"
+              exit 1
+            )
+#  frontend:
+#    name: Deploy Frontend
+#    runs-on: ubuntu-latest
+#    needs: terraform
+#    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+
+#    steps:
+#      - uses: actions/checkout@v3
+#      - uses: actions/setup-node@v3
+#        with:
+#          node-version: '18'
+#      - uses: aws-actions/configure-aws-credentials@v4
+#        with:
+#          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+#          aws-region: ${{ env.AWS_REGION }}
+
+#      - name: Install Dependencies
+#        run: |
+#          npm install
+#          npm install -g @aws-amplify/cli
+
+#      - name: Create .env file
+#        run: |
+#          echo "REACT_APP_AWS_REGION=${{ env.AWS_REGION }}" > .env
+#          echo "REACT_APP_USER_POOL_ID=${{ needs.terraform.outputs.user_pool_id }}" >> .env
+#          echo "REACT_APP_USER_POOL_CLIENT_ID=${{ needs.terraform.outputs.client_id }}" >> .env
+#          echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
+#          echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
+
+#      - name: Configure Amplify
+#        run: |
+#            # Create base directories
+#            mkdir -p amplify/.config
+#            mkdir -p amplify/backend
+#            mkdir -p amplify/backend/hosting/amplifyhosting
        
-           # Create project-config.json
-           echo '{
-             "projectName": "aiadventuregame",
-             "version": "3.1",
-             "frontend": "javascript",
-             "javascript": {
-               "framework": "react",
-               "config": {
-                 "SourceDir": "src",
-                 "DistributionDir": "build",
-                 "BuildCommand": "npm run-script build",
-                 "StartCommand": "npm run-script start"
-               }
-             },
-             "providers": ["awscloudformation"]
-           }' > amplify/.config/project-config.json
+#            # Create project-config.json
+#            echo '{
+#              "projectName": "aiadventuregame",
+#              "version": "3.1",
+#              "frontend": "javascript",
+#              "javascript": {
+#                "framework": "react",
+#                "config": {
+#                  "SourceDir": "src",
+#                  "DistributionDir": "build",
+#                  "BuildCommand": "npm run-script build",
+#                  "StartCommand": "npm run-script start"
+#                }
+#              },
+#              "providers": ["awscloudformation"]
+#            }' > amplify/.config/project-config.json
        
-           # Create local-env-info.json
-           echo '{
-             "projectPath": "'$(pwd)'",
-             "defaultEditor": "vscode",
-             "envName": "dev"
-           }' > amplify/.config/local-env-info.json
+#            # Create local-env-info.json
+#            echo '{
+#              "projectPath": "'$(pwd)'",
+#              "defaultEditor": "vscode",
+#              "envName": "dev"
+#            }' > amplify/.config/local-env-info.json
        
-           # Create amplify-meta.json
-           echo '{
-             "providers": {
-               "awscloudformation": {
-                 "AuthRoleName": "amplify-aiadventuregame-dev-role",
-                 "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                 "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                 "Region": "'$AWS_REGION'",
-                 "DeploymentBucketName": "'$AWS_BACKEND_BUCKET'",
-                 "StackName": "amplify-aiadventuregame-dev",
-                 "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
-                 "AmplifyAppId": "d20eknb0yurkis"
-               }
-             }
-           }' > amplify/backend/amplify-meta.json
+#            # Create amplify-meta.json
+#            echo '{
+#              "providers": {
+#                "awscloudformation": {
+#                  "AuthRoleName": "amplify-aiadventuregame-dev-role",
+#                  "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+#                  "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+#                  "Region": "'$AWS_REGION'",
+#                  "DeploymentBucketName": "'$AWS_BACKEND_BUCKET'",
+#                  "StackName": "amplify-aiadventuregame-dev",
+#                  "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+#                  "AmplifyAppId": "d20eknb0yurkis"
+#                }
+#              }
+#            }' > amplify/backend/amplify-meta.json
        
-           # Create team-provider-info.json
-           echo '{
-             "dev": {
-               "awscloudformation": {
-                 "AuthRoleName": "amplify-aiadventuregame-dev-role",
-                 "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                 "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
-                 "Region": "'$AWS_REGION'",
-                 "DeploymentBucketName": "'$AWS_BACKEND_BUCKET'",
-                 "StackName": "amplify-aiadventuregame-dev",
-                 "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
-                 "AmplifyAppId": "d20eknb0yurkis"
-               }
-             }
-           }' > amplify/team-provider-info.json
+#            # Create team-provider-info.json
+#            echo '{
+#              "dev": {
+#                "awscloudformation": {
+#                  "AuthRoleName": "amplify-aiadventuregame-dev-role",
+#                  "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+#                  "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+#                  "Region": "'$AWS_REGION'",
+#                  "DeploymentBucketName": "'$AWS_BACKEND_BUCKET'",
+#                  "StackName": "amplify-aiadventuregame-dev",
+#                  "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+#                  "AmplifyAppId": "d20eknb0yurkis"
+#                }
+#              }
+#            }' > amplify/team-provider-info.json
        
-           # Initialize and configure
-           amplify init \
-             --frontend javascript \
-             --provider aws \
-             --projectName aiadventuregame \
-             --yes
+#            # Initialize and configure
+#            amplify init \
+#              --frontend javascript \
+#              --provider aws \
+#              --projectName aiadventuregame \
+#              --yes
        
-           # Add hosting configuration
-           amplify add hosting \
-             --platform aws \
-             --type manual \
-             --yes
+#            # Add hosting configuration
+#            amplify add hosting \
+#              --platform aws \
+#              --type manual \
+#              --yes
        
-           # Push changes
-           amplify push --yes
+#            # Push changes
+#            amplify push --yes
 
-     - name: Fix Component File Names
-       run: |
-         mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
-         mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
+#      - name: Fix Component File Names
+#        run: |
+#          mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
+#          mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
 
-     - name: Build Frontend
-       run: npm run build
-       env:
-         CI: true
-         REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
-         REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
-         REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
-         REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
-         REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
+#      - name: Build Frontend
+#        run: npm run build
+#        env:
+#          CI: true
+#          REACT_APP_AWS_REGION: ${{ env.AWS_REGION }}
+#          REACT_APP_USER_POOL_ID: ${{ needs.terraform.outputs.user_pool_id }}
+#          REACT_APP_USER_POOL_CLIENT_ID: ${{ needs.terraform.outputs.client_id }}
+#          REACT_APP_LAMBDA_ENDPOINT: ${{ needs.terraform.outputs.lambda_endpoint }}
+#          REACT_APP_ENVIRONMENT: ${{ env.AMPLIFY_ENV_NAME }}
 
-     - name: Deploy to Amplify
-       run: amplify publish --yes
+#      - name: Deploy to Amplify
+#        run: amplify publish --yes
 
-     - name: Upload Diagnostic Report
-       if: failure()
-       uses: actions/upload-artifact@v4
-       with:
-         name: amplify-diagnose-report
-         path: /tmp/aiadventuregame/report-*.zip
-         retention-days: 5
+#      - name: Upload Diagnostic Report
+#        if: failure()
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: amplify-diagnose-report
+#          path: /tmp/aiadventuregame/report-*.zip
+#          retention-days: 5
