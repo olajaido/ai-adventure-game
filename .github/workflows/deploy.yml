@@ -985,17 +985,38 @@ jobs:
           CI: true
 
       - name: Deploy to Amplify
+        env:
+            AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            AMPLIFY_APP_ID: ${{ needs.terraform.outputs.amplify_app_id }}
         run: |
-          curl -X POST \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -d "{
-              \"zipFile\": \"$(base64 -w 0 <(cd build && zip -r - .))\"
-            }" \
-            "https://amplify.${{ env.AWS_REGION }}.amazonaws.com/v1/apps/${{ needs.terraform.outputs.amplify_app_id }}/branches/dev/deployments" || (
-              echo "Amplify deployment failed"
+            # Create zip file
+            cd build && zip -r ../build.zip .
+            
+            # Convert to base64 and deploy
+            base64 build.zip > build.b64
+            
+            # Create JSON payload
+            jq -n --arg zip "$(cat build.b64)" '{
+              zipFile: $zip
+            }' > payload.json
+            
+            # Deploy to Amplify
+            curl -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $AUTH_TOKEN" \
+              --data-binary @payload.json \
+              "https://amplify.${{ env.AWS_REGION }}.amazonaws.com/v1/apps/$AMPLIFY_APP_ID/branches/dev/deployments"
+            
+            # Check deployment status
+            if [ $? -eq 0 ]; then
+              echo "Deployment successful"
+            else
+              echo "Deployment failed"
               exit 1
-            )
+            fi
+            
+            # Cleanup
+            rm build.zip build.b64 payload.json
 #  frontend:
 #    name: Deploy Frontend
 #    runs-on: ubuntu-latest
