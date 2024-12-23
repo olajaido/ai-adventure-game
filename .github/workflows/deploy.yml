@@ -192,78 +192,137 @@ jobs:
           echo "REACT_APP_LAMBDA_ENDPOINT=${{ needs.terraform.outputs.lambda_endpoint }}" >> .env
           echo "REACT_APP_ENVIRONMENT=${{ env.AMPLIFY_ENV_NAME }}" >> .env
 
-      - name: Prepare Amplify Deployment
+      - name: Configure Amplify and Hosting
         run: |
-            # Verify AWS CLI configuration
-            aws configure list
-            
-            # Check Amplify CLI version
-            npm install -g @aws-amplify/cli
-            amplify --version
-            
-            # Debug AWS Account Information
-            aws sts get-caller-identity
-            
-            # Remove existing Amplify configuration
-            echo "Removing existing Amplify configuration..."
-            rm -rf amplify || true
-            mkdir -p amplify
+              # Create necessary directories
+              mkdir -p amplify/.config
+              mkdir -p amplify/backend
+              mkdir -p amplify/backend/hosting/amplifyhosting
     
-      - name: Initialize Amplify Project
-        run: |
-            echo "Initializing Amplify project..."
-            amplify init \
-              --name aiadventuregame \
-              --appId d3s8tb811rq75i \
-              --envName dev \
-              --providers awscloudformation \
-              --yes \
-              || (
-                echo "Initial init failed. Attempting alternative initialization..."
-                amplify init \
-                  --name aiadventuregame \
-                  --envName dev \
-                  --providers awscloudformation \
-                  --yes
-              )
-                  
+              # Create project-config.json
+              echo '{
+                "projectName": "aiadventuregame",
+                "version": "3.1",
+                "frontend": "javascript",
+                "javascript": {
+                  "framework": "react",
+                  "config": {
+                    "SourceDir": "src",
+                    "DistributionDir": "build",
+                    "BuildCommand": "npm run-script build",
+                    "StartCommand": "npm run-script start"
+                  }
+                },
+                "providers": ["awscloudformation"]
+              }' > amplify/.config/project-config.json
     
-      - name: Configure Amplify Project
-        run: |
-            # Verify project initialization
-            echo "Checking Amplify environment..."
-            amplify env list
-            
-            # Add environment if needed
-            amplify env add dev --yes || true
-            
-            # Pull existing cloud configuration
-            echo "Pulling cloud configuration..."
-            amplify pull \
-              --appId d3s8tb811rq75i \
-              --envName dev \
-              --yes \
-              || echo "Pull may have partial issues"
+              # Create local-env-info.json
+              echo '{
+                "projectPath": "'$(pwd)'",
+                "defaultEditor": "vscode",
+                "envName": "dev"
+              }' > amplify/.config/local-env-info.json
+  
+              # Create hosting configuration
+              echo '{
+                "service": "amplifyhosting",
+                "providerPlugin": "awscloudformation",
+                "type": "manual"
+              }' > amplify/backend/hosting/amplifyhosting/amplifyhosting-template.json
     
-      - name: Push Amplify Changes
-        run: |
-            # Push changes to cloud
-            echo "Pushing Amplify changes..."
-            amplify push --yes \
-              || (
-                echo "Push encountered issues. Attempting force push..."
-                amplify push --yes --force
-              )
+              # Create amplify-meta.json
+              echo '{
+                "providers": {
+                  "awscloudformation": {
+                    "AuthRoleName": "amplify-aiadventuregame-dev-role",
+                    "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                    "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                    "Region": "'${{ env.AWS_REGION }}'",
+                    "DeploymentBucketName": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                    "StackName": "amplify-aiadventuregame-dev",
+                    "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+                    "AmplifyAppId": "d20eknb0yurkis"
+                  }
+                },
+                "auth": {
+                  "cognitof8f24c0": {
+                    "service": "Cognito",
+                    "serviceType": "managed",
+                    "providerPlugin": "awscloudformation",
+                    "dependsOn": [],
+                    "frontendAuthConfig": {
+                      "socialProviders": [],
+                      "usernameAttributes": ["EMAIL"],
+                      "signupAttributes": ["EMAIL"],
+                      "passwordProtectionSettings": {
+                        "passwordPolicyMinLength": 8,
+                        "passwordPolicyCharacters": [
+                          "REQUIRES_LOWERCASE",
+                          "REQUIRES_NUMBERS",
+                          "REQUIRES_SYMBOLS",
+                          "REQUIRES_UPPERCASE"
+                        ]
+                      },
+                      "mfaConfiguration": "OFF",
+                      "mfaTypes": []
+                    }
+                  }
+                },
+                "hosting": {
+                  "amplifyhosting": {
+                    "service": "amplifyhosting",
+                    "type": "manual",
+                    "providerPlugin": "awscloudformation",
+                    "lastPushTimeStamp": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                    "output": {
+                      "appId": "d20eknb0yurkis",
+                      "region": "'${{ env.AWS_REGION }}'",
+                      "hostingUrl": "https://dev.d20eknb0yurkis.amplifyapp.com"
+                    }
+                  }
+                }
+              }' > amplify/backend/amplify-meta.json
     
-      - name: Publish to Amplify Hosting
-        run: |
-            # Publish project
-            echo "Publishing to Amplify Hosting..."
-            amplify publish --yes \
-              || (
-                echo "Publish encountered issues. Generating diagnostic report..."
-                amplify diagnose --send-report
-              )
+              # Create team-provider-info.json
+              echo '{
+                "dev": {
+                  "awscloudformation": {
+                    "AuthRoleName": "amplify-aiadventuregame-dev-role",
+                    "UnauthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                    "AuthRoleArn": "arn:aws:iam::436549840164:role/amplify-aiadventuregame-dev-role",
+                    "Region": "'${{ env.AWS_REGION }}'",
+                    "DeploymentBucketName": "'${{ env.AWS_BACKEND_BUCKET }}'",
+                    "StackName": "amplify-aiadventuregame-dev",
+                    "StackId": "arn:aws:cloudformation:eu-west-2:436549840164:stack/amplify-aiadventuregame-dev",
+                    "AmplifyAppId": "d20eknb0yurkis"
+                  },
+                  "categories": {
+                    "auth": {
+                      "cognitof8f24c0": {}
+                    },
+                    "hosting": {
+                      "amplifyhosting": {
+                        "appId": "d20eknb0yurkis",
+                        "type": "manual"
+                      }
+                    }
+                  }
+                }
+              }' > amplify/team-provider-info.json
+  
+              # Initialize Amplify with hosting
+              amplify init \
+                --amplify "{\"envName\":\"dev\"}" \
+                --yes
+  
+              # Add hosting
+              echo "Adding hosting..."
+              amplify add hosting \
+                --service amplifyhosting \
+                --providerPlugin awscloudformation \
+                --appId d20eknb0yurkis \
+                --envName dev \
+                --yes
         
         env:
             AWS_REGION: eu-west-2
