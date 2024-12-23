@@ -226,6 +226,7 @@ jobs:
                   --providers awscloudformation \
                   --yes
               )
+                  
     
       - name: Configure Amplify Project
         run: |
