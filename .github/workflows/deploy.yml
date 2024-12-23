@@ -251,12 +251,12 @@ jobs:
                 }
               }' > amplify/team-provider-info.json
         
-              # Initialize Amplify first (before creating other config files)
+              # Initialize Amplify first (with assumed role configuration)
               echo "Initializing Amplify..."
               amplify init \
                 --amplify "{\"envName\":\"dev\"}" \
                 --frontend "{\"frontend\":\"javascript\",\"framework\":\"react\",\"config\":{\"SourceDir\":\"src\",\"DistributionDir\":\"build\",\"BuildCommand\":\"npm run-script build\",\"StartCommand\":\"npm run-script start\"}}" \
-                --providers "{\"awscloudformation\":{\"configLevel\":\"project\",\"useProfile\":false,\"profileName\":\"default\"}}" \
+                --providers "{\"awscloudformation\":{\"configLevel\":\"project\",\"useProfile\":false,\"region\":\"${{ env.AWS_REGION }}\"}}" \
                 --yes
         
               # Create amplify-meta.json
