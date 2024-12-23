@@ -226,7 +226,7 @@ jobs:
                   }
                 }
               }' > amplify/cli-inputs.json
-        
+              
               # Create project-config.json
               echo '{
                 "projectName": "aiadventuregame",
@@ -243,14 +243,14 @@ jobs:
                 },
                 "providers": ["awscloudformation"]
               }' > amplify/.config/project-config.json
-          
+              
               # Create local-env-info.json
               echo '{
                 "projectPath": "'$(pwd)'",
                 "defaultEditor": "vscode",
                 "envName": "dev"
               }' > amplify/.config/local-env-info.json
-        
+              
               # Create team-provider-info.json
               echo '{
                 "dev": {
@@ -274,7 +274,7 @@ jobs:
                   }
                 }
               }' > amplify/team-provider-info.json
-        
+              
               # Create amplify-meta.json
               echo '{
                 "providers": {
@@ -303,14 +303,14 @@ jobs:
                   }
                 }
               }' > amplify/backend/amplify-meta.json
-        
+              
               # Create hosting configuration
               echo '{
                 "service": "amplifyhosting",
                 "providerPlugin": "awscloudformation",
                 "type": "cicd"
               }' > amplify/backend/hosting/amplifyhosting/amplifyhosting-template.json
-        
+              
               # Create hosting parameters.json
               echo '{
                 "pluginId": "awscloudformation",
@@ -318,7 +318,7 @@ jobs:
                 "type": "cicd",
                 "appId": "d3s8tb811rq75i"
               }' > amplify/backend/hosting/amplifyhosting/parameters.json
-        
+              
               # Create backend-config.json
               echo '{
                 "hosting": {
@@ -330,10 +330,11 @@ jobs:
                 }
               }' > amplify/backend/backend-config.json
         
-              # Initialize Amplify from config
-              echo "Initializing Amplify..."
-              amplify init \
-                --fromConfig \
+              # Pull existing project first
+              echo "Pulling existing project..."
+              amplify pull \
+                --appId d3s8tb811rq75i \
+                --envName dev \
                 --yes
         
               # Add hosting with non-interactive mode
