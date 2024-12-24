@@ -925,26 +925,42 @@ jobs:
      - name: Terraform Apply
        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
        run: terraform apply -auto-approve
-
+       
      - name: Get Terraform Outputs
        id: terraform_output
        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
        run: |
-         user_pool_id=$(terraform output -raw cognito_user_pool_id 2>/dev/null | tr -d '\n')
-         client_id=$(terraform output -raw cognito_client_id 2>/dev/null | tr -d '\n')
-         lambda_endpoint=$(terraform output -raw lambda_endpoint 2>/dev/null | tr -d '\n')
-         amplify_app_id=$(terraform output -raw amplify_app_id 2>/dev/null | tr -d '\n')
+         # Direct capture without debug output
+         lambda_endpoint=$(terraform output -raw lambda_endpoint)
+         user_pool_id=$(terraform output -raw cognito_user_pool_id)
+         client_id=$(terraform output -raw cognito_client_id)
+         amplify_app_id=$(terraform output -raw amplify_app_id)
          
-         if [ -z "$user_pool_id" ]; then
-           echo "Failed to get user_pool_id"
-           terraform output
-           exit 1
-         fi
+         # Set outputs without debug info
+         echo "lambda_endpoint=${lambda_endpoint}" >> $GITHUB_OUTPUT
+         echo "user_pool_id=${user_pool_id}" >> $GITHUB_OUTPUT
+         echo "client_id=${client_id}" >> $GITHUB_OUTPUT
+         echo "amplify_app_id=${amplify_app_id}" >> $GITHUB_OUTPUT   
+
+    #  - name: Get Terraform Outputs
+    #    id: terraform_output
+    #    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    #    run: |
+    #      user_pool_id=$(terraform output -raw cognito_user_pool_id 2>/dev/null | tr -d '\n')
+    #      client_id=$(terraform output -raw cognito_client_id 2>/dev/null | tr -d '\n')
+    #      lambda_endpoint=$(terraform output -raw lambda_endpoint 2>/dev/null | tr -d '\n')
+    #      amplify_app_id=$(terraform output -raw amplify_app_id 2>/dev/null | tr -d '\n')
          
-         echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
-         echo "client_id=$client_id" >> $GITHUB_OUTPUT
-         echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
-         echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
+    #      if [ -z "$user_pool_id" ]; then
+    #        echo "Failed to get user_pool_id"
+    #        terraform output
+    #        exit 1
+    #      fi
+         
+    #      echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
+    #      echo "client_id=$client_id" >> $GITHUB_OUTPUT
+    #      echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
+    #      echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
 
  frontend:
     name: Deploy Frontend

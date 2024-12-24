@@ -421,25 +421,28 @@ function GameScreen() {
                sha256: Sha256
            });
 
-           // Fix URL construction
-           const lambdaEndpoint = process.env.REACT_APP_LAMBDA_ENDPOINT;
+           // Log environment variables for debugging
+           console.log('Lambda Endpoint:', process.env.REACT_APP_LAMBDA_ENDPOINT);
+
+           // Extract clean URL from environment variable
+           const lambdaEndpoint = process.env.REACT_APP_LAMBDA_ENDPOINT?.split('::')[0]?.trim();
            if (!lambdaEndpoint) {
                throw new Error('Lambda endpoint not configured');
            }
-           
-           // Ensure we have a clean URL
-           const baseUrl = lambdaEndpoint.endsWith('/') ? lambdaEndpoint : `${lambdaEndpoint}/`;
+
+           // Clean up the URL
+           const baseUrl = lambdaEndpoint.replace(/\/$/, ''); // Remove trailing slash if present
            const pathWithoutLeadingSlash = path.startsWith('/') ? path.slice(1) : path;
-           const fullUrl = new URL(pathWithoutLeadingSlash, baseUrl);
+           const fullUrl = `${baseUrl}/${pathWithoutLeadingSlash}`;
 
            const signed = await signer.sign({
                method,
                headers: {
                    'Content-Type': 'application/json',
-                   host: fullUrl.host
+                   host: new URL(baseUrl).host
                },
                body: body ? JSON.stringify(body) : undefined,
-               uri: fullUrl.toString()
+               uri: fullUrl
            });
 
            const requestConfig = {
