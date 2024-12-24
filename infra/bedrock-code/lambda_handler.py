@@ -178,24 +178,260 @@
 #         print(f"Error processing consequences: {str(e)}")
               
 
+# import json
+# import os
+# from story_generator import StoryGenerator
+# from game_data import GameState, PlayerState
+# from content_manager import ContentManager
+# from player_analytics import PlayerAnalytics
+# import boto3
+
+# dynamodb = boto3.resource('dynamodb')
+# game_table = dynamodb.Table(os.environ['GAME_TABLE'])
+# content_manager = ContentManager('game_content.json')
+# analytics = PlayerAnalytics(os.environ['GAME_TABLE'])
+
+# def handle_game_action(event, context):
+#     """Main handler for game actions"""
+#     try:
+#         body = json.loads(event['body'])
+#         user_id = event['requestContext']['authorizer']['claims']['sub']
+        
+#         # Initialize components
+#         story_generator = StoryGenerator()
+#         game_state = GameState()
+#         player_state = load_player_state(user_id)
+        
+#         action_type = body.get('action', 'generate_scene')
+        
+#         if action_type == 'generate_scene':
+#             current_scene = body.get('current_scene', {})
+#             player_choice = body.get('player_choice')
+            
+#             # Track player choice if it exists
+#             if player_choice:
+#                 analytics.track_choice(
+#                     user_id,
+#                     current_scene.get('scene_id', 'initial'),
+#                     player_choice,
+#                     current_scene.get('consequences', {})
+#                 )
+            
+#             # Generate new scene with enhanced content
+#             scene_data = story_generator.generate_scene(
+#                 current_scene,
+#                 player_state.stats,
+#                 player_choice
+#             )
+            
+#             # Add random event (20% chance)
+#             if random.random() < 0.2:
+#                 scene_data['random_event'] = content_manager.generate_random_event()
+            
+#             # Process consequences
+#             if player_choice and 'consequences' in current_scene:
+#                 process_consequences(player_state, current_scene['consequences'])
+            
+#             # Add new quest (20% chance)
+#             if random.random() < 0.2:
+#                 new_quest = game_state.generate_quest(
+#                     'side_quest' if random.random() < 0.7 else 'main_quest',
+#                     player_state.stats
+#                 )
+#                 player_state.add_quest(new_quest)
+#                 scene_data['new_quest'] = new_quest
+            
+#             # Add NPC if appropriate
+#             if 'npc_interaction' in scene_data:
+#                 npc_data = content_manager.generate_npc()
+#                 scene_data['npc_data'] = npc_data
+            
+#             # Save updated state
+#             save_player_state(user_id, player_state)
+            
+#             return {
+#                 'statusCode': 200,
+#                 'body': json.dumps({
+#                     'scene': scene_data,
+#                     'player_state': player_state.stats,
+#                     'quests': player_state.quest_log,
+#                     'inventory': player_state.inventory
+#                 }),
+#                 'headers': {
+#                     'Content-Type': 'application/json',
+#                     'Access-Control-Allow-Origin': '*'
+#                 }
+#             }
+            
+#         elif action_type == 'complete_quest':
+#             quest_id = body.get('quest_id')
+#             quest_data = body.get('quest_data', {})
+            
+#             # Track quest completion
+#             analytics.track_quest_completion(
+#                 user_id,
+#                 quest_id,
+#                 quest_data.get('time_taken', 0)
+#             )
+            
+#             # Process quest rewards
+#             process_quest_completion(player_state, quest_id, quest_data)
+#             save_player_state(user_id, player_state)
+            
+#             return {
+#                 'statusCode': 200,
+#                 'body': json.dumps({
+#                     'player_state': player_state.stats,
+#                     'quests': player_state.quest_log,
+#                     'inventory': player_state.inventory
+#                 }),
+#                 'headers': {
+#                     'Content-Type': 'application/json',
+#                     'Access-Control-Allow-Origin': '*'
+#                 }
+#             }
+            
+#         elif action_type == 'get_player_analytics':
+#             # Get player preferences and stats
+#             preferences = analytics.get_player_preferences(user_id)
+#             return {
+#                 'statusCode': 200,
+#                 'body': json.dumps(preferences),
+#                 'headers': {
+#                     'Content-Type': 'application/json',
+#                     'Access-Control-Allow-Origin': '*'
+#                 }
+#             }
+            
+#     except Exception as e:
+#         print(f"Error processing request: {str(e)}")
+#         return {
+#             'statusCode': 500,
+#             'body': json.dumps({'error': str(e)}),
+#             'headers': {
+#                 'Content-Type': 'application/json',
+#                 'Access-Control-Allow-Origin': '*'
+#             }
+#         }
+
+# def process_quest_completion(player_state: PlayerState, quest_id: str, quest_data: dict):
+#     """Process quest completion and rewards"""
+#     rewards = quest_data.get('rewards', {})
+#     player_state.complete_quest(quest_id, rewards)
+    
+#     # Add any special rewards from content manager
+#     if random.random() < 0.3:  # 30% chance for special reward
+#         special_item = content_manager.generate_item('artifacts')
+#         player_state.add_item(special_item)
 import json
 import os
+import random
+import jwt
+import requests
 from story_generator import StoryGenerator
 from game_data import GameState, PlayerState
 from content_manager import ContentManager
 from player_analytics import PlayerAnalytics
 import boto3
 
+# Initialize AWS resources
 dynamodb = boto3.resource('dynamodb')
 game_table = dynamodb.Table(os.environ['GAME_TABLE'])
 content_manager = ContentManager('game_content.json')
 analytics = PlayerAnalytics(os.environ['GAME_TABLE'])
 
+def verify_cognito_token(token):
+    try:
+        # Your Cognito pool details
+        USER_POOL_ID = 'eu-west-2_EcJ4nZ9ST'
+        REGION = 'eu-west-2'
+
+        # Get the public keys from Cognito
+        keys_url = f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json'
+        response = requests.get(keys_url)
+        keys = response.json()['keys']
+
+        # Get the 'kid' from the token header
+        headers = jwt.get_unverified_header(token)
+        kid = headers['kid']
+
+        # Find the correct key
+        key = next((k for k in keys if k['kid'] == kid), None)
+        if not key:
+            return None
+
+        # Verify the token
+        claims = jwt.decode(
+            token,
+            key,
+            algorithms=['RS256'],
+            options={'verify_exp': True}
+        )
+        return claims['sub']  # Return the user ID
+    except Exception as e:
+        print(f"Token verification failed: {str(e)}")
+        return None
+
+def load_player_state(user_id: str) -> PlayerState:
+    """Load player state from DynamoDB"""
+    try:
+        response = game_table.get_item(Key={'userId': user_id})
+        if 'Item' in response:
+            return PlayerState.from_dict(response['Item'])
+        return PlayerState(user_id=user_id)
+    except Exception as e:
+        print(f"Error loading player state: {str(e)}")
+        return PlayerState(user_id=user_id)
+
+def save_player_state(user_id: str, player_state: PlayerState):
+    """Save player state to DynamoDB"""
+    try:
+        game_table.put_item(Item=player_state.to_dict())
+    except Exception as e:
+        print(f"Error saving player state: {str(e)}")
+
+def process_consequences(player_state: PlayerState, consequences: dict):
+    """Process consequences of player choices"""
+    for stat, change in consequences.items():
+        if stat in player_state.stats:
+            player_state.stats[stat] += change
+
 def handle_game_action(event, context):
     """Main handler for game actions"""
     try:
-        body = json.loads(event['body'])
-        user_id = event['requestContext']['authorizer']['claims']['sub']
+        # Extract and verify token
+        auth_header = event.get('headers', {}).get('authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return {
+                'statusCode': 401,
+                'body': json.dumps({'error': 'No valid token provided'}),
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Credentials': 'true'
+                }
+            }
+
+        token = auth_header.split(' ')[1]
+        user_id = verify_cognito_token(token)
+        
+        if not user_id:
+            return {
+                'statusCode': 403,
+                'body': json.dumps({'error': 'Invalid token'}),
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Credentials': 'true'
+                }
+            }
+
+        # Parse request body
+        body = event.get('body')
+        if body:
+            body = json.loads(body)
+        else:
+            body = {}
         
         # Initialize components
         story_generator = StoryGenerator()
@@ -259,7 +495,8 @@ def handle_game_action(event, context):
                 }),
                 'headers': {
                     'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
+                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Credentials': 'true'
                 }
             }
             
@@ -287,7 +524,8 @@ def handle_game_action(event, context):
                 }),
                 'headers': {
                     'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
+                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Credentials': 'true'
                 }
             }
             
@@ -299,7 +537,8 @@ def handle_game_action(event, context):
                 'body': json.dumps(preferences),
                 'headers': {
                     'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
+                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Credentials': 'true'
                 }
             }
             
@@ -310,7 +549,8 @@ def handle_game_action(event, context):
             'body': json.dumps({'error': str(e)}),
             'headers': {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                'Access-Control-Allow-Credentials': 'true'
             }
         }
 
