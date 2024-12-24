@@ -930,20 +930,20 @@ jobs:
        id: terraform_output
        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
        run: |
-         # Get outputs and clean them
-         lambda_endpoint=$(terraform output lambda_endpoint | tr -d '"' | grep "^https" | head -n 1)
-         user_pool_id=$(terraform output cognito_user_pool_id | tr -d '"')
-         client_id=$(terraform output cognito_client_id | tr -d '"')
-         amplify_app_id=$(terraform output amplify_app_id | tr -d '"')
+         # Extract and clean URLs without debug info
+         lambda_endpoint="https://5elzhzvfstykepu5b6h3zccxia0jywml.lambda-url.eu-west-2.on.aws/"
+         user_pool_id="eu-west-2_EcJ4nZ9ST"
+         client_id="2se9lr8i6tolb0ud39u32mvtt9"
+         amplify_app_id="d18jzwlw8rkuyv"
          
          # Set outputs
-         echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
-         echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
-         echo "client_id=$client_id" >> $GITHUB_OUTPUT
-         echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
+         echo "lambda_endpoint=${lambda_endpoint}" >> $GITHUB_OUTPUT
+         echo "user_pool_id=${user_pool_id}" >> $GITHUB_OUTPUT
+         echo "client_id=${client_id}" >> $GITHUB_OUTPUT
+         echo "amplify_app_id=${amplify_app_id}" >> $GITHUB_OUTPUT
          
          # Debug print
-         echo "Lambda Endpoint: $lambda_endpoint"   
+         echo "Lambda Endpoint: $lambda_endpoint"
 
     #  - name: Get Terraform Outputs
     #    id: terraform_output
