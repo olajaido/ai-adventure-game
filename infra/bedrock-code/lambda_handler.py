@@ -344,6 +344,7 @@ def verify_cognito_token(token):
     try:
         # Your Cognito pool details
         USER_POOL_ID = 'eu-west-2_EcJ4nZ9ST'
+        CLIENT_ID = '2se9lr8i6tolb0ud39u32mvtt9'
         REGION = 'eu-west-2'
 
         # Get the public keys from Cognito
@@ -360,18 +361,22 @@ def verify_cognito_token(token):
         if not key:
             return None
 
+        # Convert the key to PEM format
+        from jwt.algorithms import RSAAlgorithm
+        public_key = RSAAlgorithm.from_jwk(json.dumps(key))
+
         # Verify the token
         claims = jwt.decode(
             token,
-            key,
+            public_key,
             algorithms=['RS256'],
-            options={'verify_exp': True}
+            audience=CLIENT_ID,
+            issuer=f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}'
         )
         return claims['sub']  # Return the user ID
     except Exception as e:
         print(f"Token verification failed: {str(e)}")
         return None
-
 def load_player_state(user_id: str) -> PlayerState:
     """Load player state from DynamoDB"""
     try:
