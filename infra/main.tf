@@ -414,17 +414,17 @@ resource "aws_lambda_function_url" "game_logic_url" {
 
   cors {
     allow_credentials = true
-    allow_origins     = ["https://dev.d18jzwlw8rkuyv.amplifyapp.com"] # Your Amplify app URL
-    allow_methods     = ["GET", "POST", "OPTIONS"]                    # Be specific about methods
-    allow_headers = [
+    allow_origins     = ["https://dev.d18jzwlw8rkuyv.amplifyapp.com"]
+    allow_methods     = ["*"]  # Keep this as "*" for now
+    allow_headers     = [
       "Authorization",
       "Content-Type",
       "X-Amz-Date",
       "X-Api-Key",
       "X-Amz-Security-Token"
     ]
-    expose_headers = ["*"]
-    max_age        = 86400
+    expose_headers    = ["*"]
+    max_age          = 86400
   }
 }
 
