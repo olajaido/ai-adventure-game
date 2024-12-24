@@ -190,7 +190,7 @@
 // export default GameScreen;
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { defaultConfig } from '@aws-sdk/client-lambda';
+//import { defaultConfig } from '@aws-sdk/client-lambda';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { Sha256 } from '@aws-crypto/sha256-browser';
 import { get, post } from '@aws-amplify/api';
