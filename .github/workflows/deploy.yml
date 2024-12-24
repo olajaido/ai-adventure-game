@@ -930,20 +930,20 @@ jobs:
        id: terraform_output
        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
        run: |
-         # Store each output in a file to avoid parsing issues
-         terraform output -raw lambda_endpoint > lambda_endpoint.txt
-         terraform output -raw cognito_user_pool_id > user_pool_id.txt
-         terraform output -raw cognito_client_id > client_id.txt
-         terraform output -raw amplify_app_id > amplify_app_id.txt
+         # Get outputs and clean them
+         lambda_endpoint=$(terraform output lambda_endpoint | tr -d '"' | grep "^https" | head -n 1)
+         user_pool_id=$(terraform output cognito_user_pool_id | tr -d '"')
+         client_id=$(terraform output cognito_client_id | tr -d '"')
+         amplify_app_id=$(terraform output amplify_app_id | tr -d '"')
          
-         # Read from files and set outputs
-         echo "lambda_endpoint=$(cat lambda_endpoint.txt)" >> $GITHUB_OUTPUT
-         echo "user_pool_id=$(cat user_pool_id.txt)" >> $GITHUB_OUTPUT
-         echo "client_id=$(cat client_id.txt)" >> $GITHUB_OUTPUT
-         echo "amplify_app_id=$(cat amplify_app_id.txt)" >> $GITHUB_OUTPUT
+         # Set outputs
+         echo "lambda_endpoint=$lambda_endpoint" >> $GITHUB_OUTPUT
+         echo "user_pool_id=$user_pool_id" >> $GITHUB_OUTPUT
+         echo "client_id=$client_id" >> $GITHUB_OUTPUT
+         echo "amplify_app_id=$amplify_app_id" >> $GITHUB_OUTPUT
          
          # Debug print
-         echo "Lambda Endpoint: $(cat lambda_endpoint.txt)"   
+         echo "Lambda Endpoint: $lambda_endpoint"   
 
     #  - name: Get Terraform Outputs
     #    id: terraform_output
