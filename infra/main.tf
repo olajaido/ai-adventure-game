@@ -395,17 +395,36 @@ data "archive_file" "lambda_zip" {
 #     max_age           = 86400
 #   }
 # }
+# resource "aws_lambda_function_url" "game_logic_url" {
+#   function_name      = aws_lambda_function.game_logic.function_name
+#   authorization_type = "AWS_IAM"
+
+#   cors {
+#     allow_credentials = true
+#     allow_origins     = ["*"]
+#     allow_methods     = ["*"]
+#     allow_headers     = ["*"] # Changed to allow all headers
+#     expose_headers    = ["*"] # Changed to expose all headers
+#     max_age           = 86400
+#   }
+# }
 resource "aws_lambda_function_url" "game_logic_url" {
   function_name      = aws_lambda_function.game_logic.function_name
-  authorization_type = "AWS_IAM"
+  authorization_type = "NONE"
 
   cors {
     allow_credentials = true
-    allow_origins     = ["*"]
-    allow_methods     = ["*"]
-    allow_headers     = ["*"] # Changed to allow all headers
-    expose_headers    = ["*"] # Changed to expose all headers
-    max_age           = 86400
+    allow_origins     = ["https://dev.d18jzwlw8rkuyv.amplifyapp.com"]  # Your Amplify app URL
+    allow_methods     = ["GET", "POST", "OPTIONS"]                      # Be specific about methods
+    allow_headers     = [
+      "Authorization",
+      "Content-Type",
+      "X-Amz-Date",
+      "X-Api-Key",
+      "X-Amz-Security-Token"
+    ]
+    expose_headers    = ["*"]
+    max_age          = 86400
   }
 }
 
