@@ -190,6 +190,9 @@
 // export default GameScreen;
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { defaultConfig } from '@aws-sdk/client-lambda';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { Sha256 } from '@aws-crypto/sha256-browser';
 import { get, post } from '@aws-amplify/api';
 import { fetchAuthSession } from '@aws-amplify/auth';
 import '../styles/GameScreen.css';
@@ -208,28 +211,36 @@ function GameScreen() {
    const makeApiCall = useCallback(async (method, path, body = null) => {
        try {
            const { credentials } = await fetchAuthSession();
-           
+           const signer = new SignatureV4({
+               credentials,
+               region: process.env.REACT_APP_AWS_REGION,
+               service: 'lambda',
+               sha256: Sha256
+           });
+
+           const url = new URL(path, process.env.REACT_APP_LAMBDA_ENDPOINT);
+           const signed = await signer.sign({
+               method,
+               headers: {
+                   'Content-Type': 'application/json',
+                   host: url.host
+               },
+               body: body ? JSON.stringify(body) : undefined,
+               uri: url.href
+           });
+
            const requestConfig = {
                apiName: 'gameApi',
-               path: path.startsWith('/') ? path.slice(1) : path,
+               path,
                options: {
-                   headers: {
-                       'Content-Type': 'application/json',
-                       'Authorization': `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${credentials.secretAccessKey}/${process.env.REACT_APP_AWS_REGION}/lambda/aws4_request`,
-                       'X-Amz-Date': new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''),
-                       'X-Amz-Security-Token': credentials.sessionToken
-                   }
+                   headers: signed.headers,
+                   body: body ? JSON.stringify(body) : undefined
                }
            };
 
-           if (body) {
-               requestConfig.options.body = JSON.stringify(body);
-           }
-
            console.log('Request Config:', requestConfig);
-
            const response = await (method === 'GET' ? get(requestConfig) : post(requestConfig));
-           console.log('Raw Response:', response);
+           console.log('Response:', response);
            
            return response;
        } catch (error) {
