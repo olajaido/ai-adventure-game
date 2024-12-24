@@ -925,22 +925,25 @@ jobs:
      - name: Terraform Apply
        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
        run: terraform apply -auto-approve
-       
+
      - name: Get Terraform Outputs
        id: terraform_output
        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
        run: |
-         # Direct capture without debug output
-         lambda_endpoint=$(terraform output -raw lambda_endpoint)
-         user_pool_id=$(terraform output -raw cognito_user_pool_id)
-         client_id=$(terraform output -raw cognito_client_id)
-         amplify_app_id=$(terraform output -raw amplify_app_id)
-         
-         # Set outputs without debug info
-         echo "lambda_endpoint=${lambda_endpoint}" >> $GITHUB_OUTPUT
-         echo "user_pool_id=${user_pool_id}" >> $GITHUB_OUTPUT
-         echo "client_id=${client_id}" >> $GITHUB_OUTPUT
-         echo "amplify_app_id=${amplify_app_id}" >> $GITHUB_OUTPUT   
+          # Capture terraform outputs and strip debug info
+          lambda_endpoint=$(terraform output -json lambda_endpoint | jq -r '.')
+          user_pool_id=$(terraform output -json cognito_user_pool_id | jq -r '.')
+          client_id=$(terraform output -json cognito_client_id | jq -r '.')
+          amplify_app_id=$(terraform output -json amplify_app_id | jq -r '.')
+          
+          # Set outputs
+          echo "lambda_endpoint=${lambda_endpoint}" >> $GITHUB_OUTPUT
+          echo "user_pool_id=${user_pool_id}" >> $GITHUB_OUTPUT
+          echo "client_id=${client_id}" >> $GITHUB_OUTPUT
+          echo "amplify_app_id=${amplify_app_id}" >> $GITHUB_OUTPUT
+          
+          # Debug print (optional)
+          echo "Lambda Endpoint: $lambda_endpoint"   
 
     #  - name: Get Terraform Outputs
     #    id: terraform_output
