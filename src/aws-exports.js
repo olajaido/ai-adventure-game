@@ -101,7 +101,8 @@ const awsExports = {
         Cognito: {  // Changed to include Cognito namespace
             region: "eu-west-2",
             userPoolId: "eu-west-2_EcJ4nZ9ST",
-            userPoolClientId: "2se9lr8i6tolb0ud39u32mvtt9"  // Changed from userPoolWebClientId
+            userPoolClientId: "2se9lr8i6tolb0ud39u32mvtt9",  // Changed from userPoolWebClientId
+            identityPoolId: "eu-west-2:22500fb6-8ed8-46c7-b05e-bc92bea6e161"  // Added identityPoolId if using Identity Pools
         }
     },
     API: {
