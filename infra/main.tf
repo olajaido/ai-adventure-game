@@ -167,6 +167,71 @@ resource "aws_cognito_user_pool_client" "game_client" {
     "ALLOW_REFRESH_TOKEN_AUTH"
   ]
 }
+# Cognito Identity Pool
+resource "aws_cognito_identity_pool" "game_identity_pool" {
+  identity_pool_name               = "${var.project_name}-identity-pool-${var.environment}"
+  allow_unauthenticated_identities = false
+
+  cognito_identity_providers {
+    client_id               = aws_cognito_user_pool_client.game_client.id
+    provider_name           = aws_cognito_user_pool.game_users.endpoint
+    server_side_token_check = false
+  }
+}
+
+# IAM role for authenticated users
+resource "aws_iam_role" "authenticated" {
+  name = "${var.project_name}-cognito-authenticated-${var.environment}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "cognito-identity.amazonaws.com"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.game_identity_pool.id
+          }
+          "ForAnyValue:StringLike" = {
+            "cognito-identity.amazonaws.com:amr" : "authenticated"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy for authenticated users to access Lambda URL
+resource "aws_iam_role_policy" "authenticated_policy" {
+  name = "${var.project_name}-authenticated-policy-${var.environment}"
+  role = aws_iam_role.authenticated.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunctionUrl"
+        ]
+        Resource = aws_lambda_function.game_logic.arn
+      }
+    ]
+  })
+}
+
+# Attach roles to Identity Pool
+resource "aws_cognito_identity_pool_roles_attachment" "main" {
+  identity_pool_id = aws_cognito_identity_pool.game_identity_pool.id
+
+  roles = {
+    authenticated = aws_iam_role.authenticated.arn
+  }
+}
 
 # IAM role for Lambda functions
 resource "aws_iam_role" "lambda_role" {
@@ -372,4 +437,7 @@ output "api_endpoint" {
 }
 output "lambda_endpoint" {
   value = aws_lambda_function_url.game_logic_url.function_url
+}
+output "identity_pool_id" {
+  value = aws_cognito_identity_pool.game_identity_pool.id
 }
