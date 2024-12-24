@@ -965,7 +965,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install Dependencies
-        run: npm ci
+        run: |
+            npm install @aws-sdk/client-lambda @aws-sdk/signature-v4 @aws-crypto/sha256-browser
+            npm install -g @aws-amplify/cli
+            npm install
 
       - name: Create .env
         run: |
@@ -978,15 +981,7 @@ jobs:
         run: |
           mv src/components/profile.js src/components/Profile.js 2>/dev/null || true
           mv src/components/inventory.js src/components/Inventory.js 2>/dev/null || true
-          mv src/app.js src/App.js 2>/dev/null || true
-      - name: Prepare Build Environment
-        run: |
-            npm cache clean --force
-            rm -rf node_modules package-lock.json
-            npm install
-            npm run build
-        env:
-            CI: true       
+          mv src/app.js src/App.js 2>/dev/null || true      
 
       - name: Build Frontend
         run: npm run build
