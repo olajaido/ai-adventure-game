@@ -995,7 +995,7 @@ jobs:
 
       - name: Deploy to Amplify
         env:
-          AMPLIFY_APP_ID: d20eknb0yurkis
+          AMPLIFY_APP_ID: d18jzwlw8rkuyv
         run: |
           # Create a deployment ZIP
           cd build && zip -r ../deploy.zip .
