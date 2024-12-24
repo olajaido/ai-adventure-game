@@ -190,8 +190,8 @@
 // export default GameScreen;
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { get, post } from 'aws-amplify/api';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { get, post } from '@aws-amplify/api';
+import { fetchAuthSession } from '@aws-amplify/auth';
 import '../styles/GameScreen.css';
 
 function GameScreen() {
@@ -214,10 +214,10 @@ function GameScreen() {
                path: path.startsWith('/') ? path.slice(1) : path,
                options: {
                    headers: {
-                       'X-Amz-Access-Token': credentials.accessKeyId,
-                       'X-Amz-Security-Token': credentials.sessionToken,
-                       'X-Amz-Secret-Key': credentials.secretAccessKey,
-                       'Content-Type': 'application/json'
+                       'Content-Type': 'application/json',
+                       'Authorization': `AWS4-HMAC-SHA256 Credential=${credentials.accessKeyId}/${credentials.secretAccessKey}/${process.env.REACT_APP_AWS_REGION}/lambda/aws4_request`,
+                       'X-Amz-Date': new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''),
+                       'X-Amz-Security-Token': credentials.sessionToken
                    }
                }
            };
