@@ -315,14 +315,14 @@ resource "aws_iam_role_policy_attachment" "lambda_xray" {
 }
 # Lambda Function
 resource "aws_lambda_function" "game_logic" {
-  filename      = data.archive_file.lambda_zip.output_path
-  function_name = "${var.project_name}-game-logic-${var.environment}"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "lambda_handler.handle_game_action"
-  runtime       = "python3.9"
-  timeout       = 30
-  memory_size   = 256
-  publish       = true # Enable versioning
+  filename         = data.archive_file.lambda_zip.output_path
+  function_name    = "${var.project_name}-game-logic-${var.environment}"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "lambda_handler.handle_game_action"
+  runtime          = "python3.9"
+  timeout          = 30
+  memory_size      = 256
+  publish          = true # Enable versioning
   source_code_hash = base64sha256(filebase64(data.archive_file.lambda_zip.output_path))
 
   environment {
@@ -436,8 +436,8 @@ resource "aws_api_gateway_integration" "lambda_proxy" {
   http_method = aws_api_gateway_method.game_proxy.http_method
 
   integration_http_method = "POST"
-  type                   = "AWS_PROXY"
-  uri                    = aws_lambda_function.game_logic.invoke_arn
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.game_logic.invoke_arn
 }
 
 # CORS configuration
@@ -537,6 +537,6 @@ output "identity_pool_id" {
   value = aws_cognito_identity_pool.game_identity_pool.id
 }
 output "api_endpoint" {
-  value = "${aws_api_gateway_stage.game_api.invoke_url}"
+  value       = aws_api_gateway_stage.game_api.invoke_url
   description = "API Gateway endpoint URL"
 }
