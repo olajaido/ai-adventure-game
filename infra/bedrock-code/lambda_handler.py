@@ -413,6 +413,8 @@ def handle_game_action(event, context):
                 'headers': {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                     'Access-Control-Allow-Credentials': 'true'
                 }
             }
@@ -427,6 +429,8 @@ def handle_game_action(event, context):
                 'headers': {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                     'Access-Control-Allow-Credentials': 'true'
                 }
             }
@@ -501,6 +505,8 @@ def handle_game_action(event, context):
                 'headers': {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                     'Access-Control-Allow-Credentials': 'true'
                 }
             }
@@ -530,6 +536,8 @@ def handle_game_action(event, context):
                 'headers': {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                     'Access-Control-Allow-Credentials': 'true'
                 }
             }
@@ -543,6 +551,8 @@ def handle_game_action(event, context):
                 'headers': {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                     'Access-Control-Allow-Credentials': 'true'
                 }
             }
@@ -555,6 +565,8 @@ def handle_game_action(event, context):
             'headers': {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                 'Access-Control-Allow-Credentials': 'true'
             }
         }
