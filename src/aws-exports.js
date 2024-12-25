@@ -45,7 +45,7 @@ const awsExports = {
     API: {
         REST: {
             gameApi: {
-                endpoint: "${aws_api_gateway_stage.game_api.invoke_url}",  // Will be replaced with actual API Gateway URL
+                endpoint: "https://hj10g1g5mk.execute-api.eu-west-2.amazonaws.com/dev",  // Will be replaced with actual API Gateway URL
                 region: "eu-west-2",
                 custom_header: async () => {
                     try {
