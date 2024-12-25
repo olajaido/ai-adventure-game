@@ -1,0 +1,124 @@
+{
+    "locations": [
+        {
+            "name": "Crystal Spire City",
+            "description": "A towering metropolis where magical crystals power advanced technology"
+        },
+        {
+            "name": "Neon Forest",
+            "description": "An ethereal woodland where bioluminescent plants merge with digital interfaces"
+        },
+        {
+            "name": "Quantum Ruins",
+            "description": "Ancient technological sites where reality seems to bend and shift"
+        }
+    ],
+    "quest_templates": {
+        "main_quests": [
+            {
+                "type": "Exploration",
+                "template": "Investigate the mysterious artifact in {location} for the {faction}",
+                "complications": [
+                    "Hidden dangers lurk in unexpected places",
+                    "The artifact is more complex than initially thought"
+                ]
+            },
+            {
+                "type": "Rescue",
+                "template": "Rescue a {character_type} trapped in the {location} controlled by {faction}",
+                "complications": [
+                    "The rescue mission is a trap",
+                    "Multiple factions are competing for the target"
+                ]
+            }
+        ],
+        "side_quests": [
+            {
+                "type": "Delivery",
+                "template": "Deliver a sensitive package to a {character_type} in {location}",
+                "complications": [
+                    "The package is not what it seems",
+                    "Rival agents are tracking the delivery"
+                ]
+            }
+        ]
+    },
+    "archetypes": {
+        "characters": [
+            {
+                "type": "merchant",
+                "traits": [
+                    "Shrewd",
+                    "Well-connected",
+                    "Opportunistic",
+                    "Knowledgeable"
+                ],
+                "dialogue_patterns": [
+                    "Every item has a price, and every secret has value.",
+                    "Information is the most valuable currency in this world."
+                ]
+            },
+            {
+                "type": "scholar",
+                "traits": [
+                    "Curious",
+                    "Analytical",
+                    "Reserved",
+                    "Intellectual"
+                ],
+                "dialogue_patterns": [
+                    "The intersection of magic and technology reveals profound truths.",
+                    "Knowledge is a journey, not a destination."
+                ]
+            }
+        ]
+    },
+    "items": {
+        "weapons": [
+            {
+                "templates": [
+                    {
+                        "name": "{element} {weapon_type} of Convergence",
+                        "description": "A weapon that blends magical essence with technological precision",
+                        "effects": [
+                            "Energy Surge",
+                            "Elemental Resonance",
+                            "Adaptive Targeting"
+                        ]
+                    }
+                ]
+            }
+        ],
+        "artifacts": [
+            {
+                "templates": [
+                    {
+                        "name": "Quantum Resonance Shard",
+                        "description": "A mysterious artifact that seems to exist in multiple states simultaneously"
+                    }
+                ]
+            }
+        ]
+    },
+    "progression_systems": {
+        "levels": {
+            "experience_curve": [
+                {"level": 1, "exp_required": 100},
+                {"level": 2, "exp_required": 300},
+                {"level": 3, "exp_required": 600}
+            ]
+        },
+        "skills": {
+            "magic": ["Elemental Manipulation", "Arcane Shielding", "Dimensional Shift"],
+            "technology": ["Cybernetic Augmentation", "Hacking", "Drone Control"]
+        }
+    },
+    "dynamic_elements": {
+        "weather": ["Magical Storm", "Digital Rain", "Quantum Flux", "Holographic Mist"],
+        "random_events": ["Temporal Anomaly", "Faction Skirmish", "Magical Technology Malfunction"],
+        "enemy_spawns": {
+            "city": ["Rogue AI", "Tech-Mage Infiltrator", "Quantum Construct"],
+            "forest": ["Corrupted Nature Spirit", "Digital Creature", "Techno-Organic Hybrid"]
+        }
+    }
+}
