@@ -206,6 +206,7 @@ resource "aws_iam_role" "authenticated" {
 }
 
 # IAM policy for authenticated users to access Lambda URL
+# IAM policy for authenticated users to access API Gateway
 resource "aws_iam_role_policy" "authenticated_policy" {
   name = "${var.project_name}-authenticated-policy-${var.environment}"
   role = aws_iam_role.authenticated.id
@@ -216,9 +217,9 @@ resource "aws_iam_role_policy" "authenticated_policy" {
       {
         Effect = "Allow"
         Action = [
-          "lambda:InvokeFunctionUrl"
+          "execute-api:Invoke"
         ]
-        Resource = aws_lambda_function.game_logic.arn
+        Resource = "${aws_api_gateway_rest_api.game_api.execution_arn}/*"
       }
     ]
   })
@@ -322,6 +323,7 @@ resource "aws_lambda_function" "game_logic" {
   timeout       = 30
   memory_size   = 256
   publish       = true # Enable versioning
+  source_code_hash = base64sha256(filebase64(data.archive_file.lambda_zip.output_path))
 
   environment {
     variables = {
@@ -381,51 +383,131 @@ data "archive_file" "lambda_zip" {
   source_dir  = "${path.module}/bedrock-code"
   output_path = "${path.module}/lambda.zip"
 }
-# Lambda Function URL
-# resource "aws_lambda_function_url" "game_logic_url" {
-#   function_name      = aws_lambda_function.game_logic.function_name
-#   authorization_type = "AWS_IAM"
+resource "aws_api_gateway_rest_api" "game_api" {
+  name        = "${var.project_name}-api-${var.environment}"
+  description = "Game API Gateway"
 
-#   cors {
-#     allow_credentials = true
-#     allow_origins     = ["*"]
-#     allow_methods     = ["*"]
-#     allow_headers     = ["date", "keep-alive", "authorization"]
-#     expose_headers    = ["keep-alive", "date"]
-#     max_age           = 86400
-#   }
-# }
-# resource "aws_lambda_function_url" "game_logic_url" {
-#   function_name      = aws_lambda_function.game_logic.function_name
-#   authorization_type = "AWS_IAM"
-
-#   cors {
-#     allow_credentials = true
-#     allow_origins     = ["*"]
-#     allow_methods     = ["*"]
-#     allow_headers     = ["*"] # Changed to allow all headers
-#     expose_headers    = ["*"] # Changed to expose all headers
-#     max_age           = 86400
-#   }
-# }
-resource "aws_lambda_function_url" "game_logic_url" {
-  function_name      = aws_lambda_function.game_logic.function_name
-  authorization_type = "NONE"
-
-  cors {
-    allow_credentials = true
-    allow_origins     = ["https://dev.d18jzwlw8rkuyv.amplifyapp.com"]
-    allow_methods     = ["*"] # Keep this as "*" for now
-    allow_headers = [
-      "Authorization",
-      "Content-Type",
-      "X-Amz-Date",
-      "X-Api-Key",
-      "X-Amz-Security-Token"
-    ]
-    expose_headers = ["*"]
-    max_age        = 86400
+  endpoint_configuration {
+    types = ["REGIONAL"]
   }
+}
+
+# Lambda permission for API Gateway
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.game_logic.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.game_api.execution_arn}/*/*"
+}
+
+# API Gateway resource
+resource "aws_api_gateway_resource" "game_proxy" {
+  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  parent_id   = aws_api_gateway_rest_api.game_api.root_resource_id
+  path_part   = "{proxy+}"
+}
+
+# API Gateway method
+resource "aws_api_gateway_method" "game_proxy" {
+  rest_api_id   = aws_api_gateway_rest_api.game_api.id
+  resource_id   = aws_api_gateway_resource.game_proxy.id
+  http_method   = "ANY"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.game_auth.id
+
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
+}
+
+# Cognito Authorizer
+resource "aws_api_gateway_authorizer" "game_auth" {
+  name          = "game-cognito-authorizer"
+  type          = "COGNITO_USER_POOLS"
+  rest_api_id   = aws_api_gateway_rest_api.game_api.id
+  provider_arns = [aws_cognito_user_pool.game_users.arn]
+}
+
+# API Gateway integration
+resource "aws_api_gateway_integration" "lambda_proxy" {
+  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  resource_id = aws_api_gateway_resource.game_proxy.id
+  http_method = aws_api_gateway_method.game_proxy.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS_PROXY"
+  uri                    = aws_lambda_function.game_logic.invoke_arn
+}
+
+# CORS configuration
+resource "aws_api_gateway_method" "options" {
+  rest_api_id   = aws_api_gateway_rest_api.game_api.id
+  resource_id   = aws_api_gateway_resource.game_proxy.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "options" {
+  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  resource_id = aws_api_gateway_resource.game_proxy.id
+  http_method = aws_api_gateway_method.options.http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_method_response" "options" {
+  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  resource_id = aws_api_gateway_resource.game_proxy.id
+  http_method = aws_api_gateway_method.options.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true,
+    "method.response.header.Access-Control-Allow-Methods" = true,
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "options" {
+  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  resource_id = aws_api_gateway_resource.game_proxy.id
+  http_method = aws_api_gateway_method.options.http_method
+  status_code = aws_api_gateway_method_response.options.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'",
+    "method.response.header.Access-Control-Allow-Origin"  = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'"
+  }
+}
+
+# API Gateway deployment
+resource "aws_api_gateway_deployment" "game_api" {
+  rest_api_id = aws_api_gateway_rest_api.game_api.id
+
+  depends_on = [
+    aws_api_gateway_integration.lambda_proxy,
+    aws_api_gateway_integration.options,
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# API Gateway stage
+resource "aws_api_gateway_stage" "game_api" {
+  deployment_id = aws_api_gateway_deployment.game_api.id
+  rest_api_id   = aws_api_gateway_rest_api.game_api.id
+  stage_name    = var.environment
 }
 
 # Outputs
@@ -451,12 +533,10 @@ output "amplify_app_id" {
   value = aws_amplify_app.game_app.id
 }
 
-output "api_endpoint" {
-  value = aws_lambda_function_url.game_logic_url.function_url
-}
-output "lambda_endpoint" {
-  value = aws_lambda_function_url.game_logic_url.function_url
-}
 output "identity_pool_id" {
   value = aws_cognito_identity_pool.game_identity_pool.id
+}
+output "api_endpoint" {
+  value = "${aws_api_gateway_stage.game_api.invoke_url}"
+  description = "API Gateway endpoint URL"
 }
