@@ -517,22 +517,22 @@ resource "aws_api_gateway_deployment" "game_api" {
 
 # Add these new Gateway Responses for CORS
 resource "aws_api_gateway_gateway_response" "cors_4xx" {
-  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  rest_api_id   = aws_api_gateway_rest_api.game_api.id
   response_type = "DEFAULT_4XX"
 
   response_parameters = {
-    "gatewayresponse.header.Access-Control-Allow-Origin" = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'",
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'",
     "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
     "gatewayresponse.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
   }
 }
 
 resource "aws_api_gateway_gateway_response" "cors_5xx" {
-  rest_api_id = aws_api_gateway_rest_api.game_api.id
+  rest_api_id   = aws_api_gateway_rest_api.game_api.id
   response_type = "DEFAULT_5XX"
 
   response_parameters = {
-    "gatewayresponse.header.Access-Control-Allow-Origin" = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'",
+    "gatewayresponse.header.Access-Control-Allow-Origin"  = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'",
     "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
     "gatewayresponse.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'"
   }
@@ -546,7 +546,7 @@ resource "aws_api_gateway_method_response" "proxy" {
   status_code = "200"
 
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Origin" = true,
+    "method.response.header.Access-Control-Allow-Origin"  = true,
     "method.response.header.Access-Control-Allow-Methods" = true,
     "method.response.header.Access-Control-Allow-Headers" = true
   }
@@ -560,7 +560,7 @@ resource "aws_api_gateway_integration_response" "proxy" {
   status_code = aws_api_gateway_method_response.proxy.status_code
 
   response_parameters = {
-    "method.response.header.Access-Control-Allow-Origin" = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'",
+    "method.response.header.Access-Control-Allow-Origin"  = "'https://dev.d18jzwlw8rkuyv.amplifyapp.com'",
     "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS'",
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
   }
