@@ -584,6 +584,239 @@
 #         special_item = content_manager.generate_item('artifacts')
 #         player_state.add_item(special_item)
 
+# import json
+# import os
+# import random
+# import jwt
+# import requests
+# from story_generator import StoryGenerator
+# from game_data import GameState, PlayerState
+# from content_manager import ContentManager
+# from player_analytics import PlayerAnalytics
+# import boto3
+# from datetime import datetime
+
+# # Initialize AWS resources
+# dynamodb = boto3.resource('dynamodb')
+# game_table = dynamodb.Table(os.environ['GAME_TABLE'])
+# content_manager = ContentManager('game_content.json')
+# analytics = PlayerAnalytics(os.environ['GAME_TABLE'])
+
+# cors_headers = {
+#     'Content-Type': 'application/json',
+#     'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+#     'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+#     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+#     'Access-Control-Allow-Credentials': 'true'
+# }
+
+# def verify_cognito_token(token):
+#     try:
+#         print("Starting token verification")
+#         # Get the claims without verification first
+#         unverified_claims = jwt.decode(token, options={"verify_signature": False})
+#         print("Token claims:", unverified_claims)
+#         return unverified_claims.get('sub')  # Return the user ID from the token
+        
+#     except Exception as e:
+#         print(f"Token verification failed: {str(e)}")
+#         import traceback
+#         print(traceback.format_exc())
+#         return None
+
+# def load_player_state(user_id: str) -> PlayerState:
+#     """Load player state from DynamoDB"""
+#     try:
+#         response = game_table.get_item(
+#             Key={
+#                 'userId': user_id,
+#                 'gameId': 'current'
+#             }
+#         )
+#         print(f"DynamoDB Response: {json.dumps(response)}")  # Debug log
+        
+#         if 'Item' in response:
+#             return PlayerState.from_dict(response['Item'])
+            
+#         # Initialize new player state
+#         initial_state = PlayerState(user_id=user_id, game_id='current')
+#         save_player_state(user_id, initial_state)
+#         return initial_state
+        
+#     except Exception as e:
+#         print(f"Error loading player state: {str(e)}")
+#         return PlayerState(user_id=user_id, game_id='current')
+
+# def save_player_state(user_id: str, player_state: PlayerState):
+#     """Save player state to DynamoDB"""
+#     try:
+#         item = player_state.to_dict()
+#         print(f"Saving state to DynamoDB: {json.dumps(item)}")  # Debug log
+#         game_table.put_item(Item=item)
+#     except Exception as e:
+#         print(f"Error saving player state: {str(e)}")
+#         import traceback
+#         print(traceback.format_exc())
+
+# def process_consequences(player_state: PlayerState, consequences: dict):
+#     """Process consequences of player choices"""
+#     for stat, change in consequences.items():
+#         if stat in player_state.stats:
+#             current_value = player_state.stats[stat]
+#             new_value = max(0, min(100, current_value + change))  # Clamp between 0 and 100
+#             player_state.stats[stat] = new_value
+
+# def handle_game_action(event, context):
+#     """Main handler for game actions"""
+#     try:
+#         # Add event logging
+#         print("Received event:", json.dumps(event))
+        
+#         # Extract and verify token
+#         auth_header = event.get('headers', {}).get('Authorization', event.get('headers', {}).get('authorization'))
+#         if not auth_header or not auth_header.startswith('Bearer '):
+#             print("Authorization header missing or invalid")
+#             return {
+#                 'statusCode': 401,
+#                 'body': json.dumps({'error': 'No valid token provided'}),
+#                 'headers': cors_headers
+#             }
+
+#         print("Token received:", auth_header)
+#         token = auth_header.split(' ')[1]
+#         user_id = verify_cognito_token(token)
+#         print("User ID from token:", user_id)
+        
+#         if not user_id:
+#             return {
+#                 'statusCode': 401,
+#                 'body': json.dumps({'error': 'Invalid token'}),
+#                 'headers': cors_headers
+#             }
+
+#         # Parse request body
+#         body = event.get('body')
+#         try:
+#             if isinstance(body, str):
+#                 # Handle potential double-encoded JSON
+#                 try:
+#                     body = json.loads(json.loads(body))
+#                 except json.JSONDecodeError:
+#                     body = json.loads(body)
+#             else:
+#                 body = body or {}
+#         except Exception as e:
+#             print(f"Error parsing body: {str(e)}")
+#             body = {}
+
+#         print("Parsed body:", json.dumps(body))  # Debug log
+        
+#         # Initialize components
+#         story_generator = StoryGenerator()
+#         game_state = GameState()
+#         player_state = load_player_state(user_id)
+        
+#         action_type = body.get('action', 'generate_scene')
+        
+#         if action_type == 'generate_scene':
+#             current_scene = body.get('current_scene', {})
+#             player_choice = body.get('player_choice')
+            
+#             if player_choice:
+#                 analytics.track_choice(
+#                     user_id,
+#                     current_scene.get('scene_id', 'initial'),
+#                     player_choice,
+#                     current_scene.get('consequences', {})
+#                 )
+            
+#             scene_data = story_generator.generate_scene(
+#                 current_scene,
+#                 player_state.stats,
+#                 player_choice
+#             )
+            
+#             if random.random() < 0.2:
+#                 scene_data['random_event'] = content_manager.generate_random_event()
+            
+#             if player_choice and 'consequences' in current_scene:
+#                 process_consequences(player_state, current_scene['consequences'])
+            
+#             if random.random() < 0.2:
+#                 new_quest = game_state.generate_quest(
+#                     'side_quest' if random.random() < 0.7 else 'main_quest',
+#                     player_state.stats
+#                 )
+#                 player_state.add_quest(new_quest)
+#                 scene_data['new_quest'] = new_quest
+            
+#             if 'npc_interaction' in scene_data:
+#                 npc_data = content_manager.generate_npc()
+#                 scene_data['npc_data'] = npc_data
+            
+#             save_player_state(user_id, player_state)
+            
+#             return {
+#                 'statusCode': 200,
+#                 'body': json.dumps({
+#                     'scene': scene_data,
+#                     'player_state': player_state.stats,
+#                     'quests': player_state.quest_log,
+#                     'inventory': player_state.inventory
+#                 }),
+#                 'headers': cors_headers
+#             }
+            
+#         elif action_type == 'complete_quest':
+#             quest_id = body.get('quest_id')
+#             quest_data = body.get('quest_data', {})
+            
+#             analytics.track_quest_completion(
+#                 user_id,
+#                 quest_id,
+#                 quest_data.get('time_taken', 0)
+#             )
+            
+#             process_quest_completion(player_state, quest_id, quest_data)
+#             save_player_state(user_id, player_state)
+            
+#             return {
+#                 'statusCode': 200,
+#                 'body': json.dumps({
+#                     'player_state': player_state.stats,
+#                     'quests': player_state.quest_log,
+#                     'inventory': player_state.inventory
+#                 }),
+#                 'headers': cors_headers
+#             }
+            
+#         elif action_type == 'get_player_analytics':
+#             preferences = analytics.get_player_preferences(user_id)
+#             return {
+#                 'statusCode': 200,
+#                 'body': json.dumps(preferences),
+#                 'headers': cors_headers
+#             }
+            
+#     except Exception as e:
+#         print(f"Error processing request: {str(e)}")
+#         import traceback
+#         print(traceback.format_exc())
+#         return {
+#             'statusCode': 500,
+#             'body': json.dumps({'error': str(e)}),
+#             'headers': cors_headers
+#         }
+
+# def process_quest_completion(player_state: PlayerState, quest_id: str, quest_data: dict):
+#     """Process quest completion and rewards"""
+#     rewards = quest_data.get('rewards', {})
+#     player_state.complete_quest(quest_id, rewards)
+    
+#     if random.random() < 0.3:
+#         special_item = content_manager.generate_item('artifacts')
+#         player_state.add_item(special_item)
+
 import json
 import os
 import random
@@ -595,6 +828,16 @@ from content_manager import ContentManager
 from player_analytics import PlayerAnalytics
 import boto3
 from datetime import datetime
+from decimal import Decimal
+
+# Custom JSON encoder for handling Decimal types
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super(DecimalEncoder, self).default(obj)
 
 # Initialize AWS resources
 dynamodb = boto3.resource('dynamodb')
@@ -613,10 +856,9 @@ cors_headers = {
 def verify_cognito_token(token):
     try:
         print("Starting token verification")
-        # Get the claims without verification first
         unverified_claims = jwt.decode(token, options={"verify_signature": False})
-        print("Token claims:", unverified_claims)
-        return unverified_claims.get('sub')  # Return the user ID from the token
+        print("Token claims:", json.dumps(unverified_claims, cls=DecimalEncoder))
+        return unverified_claims.get('sub')
         
     except Exception as e:
         print(f"Token verification failed: {str(e)}")
@@ -633,12 +875,11 @@ def load_player_state(user_id: str) -> PlayerState:
                 'gameId': 'current'
             }
         )
-        print(f"DynamoDB Response: {json.dumps(response)}")  # Debug log
+        print(f"DynamoDB Response: {json.dumps(response, cls=DecimalEncoder)}")
         
         if 'Item' in response:
             return PlayerState.from_dict(response['Item'])
             
-        # Initialize new player state
         initial_state = PlayerState(user_id=user_id, game_id='current')
         save_player_state(user_id, initial_state)
         return initial_state
@@ -651,7 +892,7 @@ def save_player_state(user_id: str, player_state: PlayerState):
     """Save player state to DynamoDB"""
     try:
         item = player_state.to_dict()
-        print(f"Saving state to DynamoDB: {json.dumps(item)}")  # Debug log
+        print(f"Saving state to DynamoDB: {json.dumps(item, cls=DecimalEncoder)}")
         game_table.put_item(Item=item)
     except Exception as e:
         print(f"Error saving player state: {str(e)}")
@@ -660,25 +901,28 @@ def save_player_state(user_id: str, player_state: PlayerState):
 
 def process_consequences(player_state: PlayerState, consequences: dict):
     """Process consequences of player choices"""
-    for stat, change in consequences.items():
-        if stat in player_state.stats:
-            current_value = player_state.stats[stat]
-            new_value = max(0, min(100, current_value + change))  # Clamp between 0 and 100
-            player_state.stats[stat] = new_value
+    try:
+        for stat, change in consequences.items():
+            if stat in player_state.stats:
+                current_value = player_state.stats[stat]
+                new_value = max(0, min(100, float(current_value) + float(change)))
+                player_state.stats[stat] = new_value
+    except Exception as e:
+        print(f"Error processing consequences: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
 
 def handle_game_action(event, context):
     """Main handler for game actions"""
     try:
-        # Add event logging
-        print("Received event:", json.dumps(event))
+        print("Received event:", json.dumps(event, cls=DecimalEncoder))
         
-        # Extract and verify token
         auth_header = event.get('headers', {}).get('Authorization', event.get('headers', {}).get('authorization'))
         if not auth_header or not auth_header.startswith('Bearer '):
             print("Authorization header missing or invalid")
             return {
                 'statusCode': 401,
-                'body': json.dumps({'error': 'No valid token provided'}),
+                'body': json.dumps({'error': 'No valid token provided'}, cls=DecimalEncoder),
                 'headers': cors_headers
             }
 
@@ -690,15 +934,13 @@ def handle_game_action(event, context):
         if not user_id:
             return {
                 'statusCode': 401,
-                'body': json.dumps({'error': 'Invalid token'}),
+                'body': json.dumps({'error': 'Invalid token'}, cls=DecimalEncoder),
                 'headers': cors_headers
             }
 
-        # Parse request body
         body = event.get('body')
         try:
             if isinstance(body, str):
-                # Handle potential double-encoded JSON
                 try:
                     body = json.loads(json.loads(body))
                 except json.JSONDecodeError:
@@ -709,9 +951,8 @@ def handle_game_action(event, context):
             print(f"Error parsing body: {str(e)}")
             body = {}
 
-        print("Parsed body:", json.dumps(body))  # Debug log
+        print("Parsed body:", json.dumps(body, cls=DecimalEncoder))
         
-        # Initialize components
         story_generator = StoryGenerator()
         game_state = GameState()
         player_state = load_player_state(user_id)
@@ -763,7 +1004,7 @@ def handle_game_action(event, context):
                     'player_state': player_state.stats,
                     'quests': player_state.quest_log,
                     'inventory': player_state.inventory
-                }),
+                }, cls=DecimalEncoder),
                 'headers': cors_headers
             }
             
@@ -786,7 +1027,7 @@ def handle_game_action(event, context):
                     'player_state': player_state.stats,
                     'quests': player_state.quest_log,
                     'inventory': player_state.inventory
-                }),
+                }, cls=DecimalEncoder),
                 'headers': cors_headers
             }
             
@@ -794,7 +1035,7 @@ def handle_game_action(event, context):
             preferences = analytics.get_player_preferences(user_id)
             return {
                 'statusCode': 200,
-                'body': json.dumps(preferences),
+                'body': json.dumps(preferences, cls=DecimalEncoder),
                 'headers': cors_headers
             }
             
@@ -804,15 +1045,20 @@ def handle_game_action(event, context):
         print(traceback.format_exc())
         return {
             'statusCode': 500,
-            'body': json.dumps({'error': str(e)}),
+            'body': json.dumps({'error': str(e)}, cls=DecimalEncoder),
             'headers': cors_headers
         }
 
 def process_quest_completion(player_state: PlayerState, quest_id: str, quest_data: dict):
     """Process quest completion and rewards"""
-    rewards = quest_data.get('rewards', {})
-    player_state.complete_quest(quest_id, rewards)
-    
-    if random.random() < 0.3:
-        special_item = content_manager.generate_item('artifacts')
-        player_state.add_item(special_item)
+    try:
+        rewards = quest_data.get('rewards', {})
+        player_state.complete_quest(quest_id, rewards)
+        
+        if random.random() < 0.3:
+            special_item = content_manager.generate_item('artifacts')
+            player_state.add_item(special_item)
+    except Exception as e:
+        print(f"Error processing quest completion: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
