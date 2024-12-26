@@ -1009,17 +1009,25 @@ jobs:
      - name: Package Lambda Code
        run: |
           cd bedrock-code
-          mkdir -p python
-          # Install python-jose first
-          pip install python-jose[cryptography] -t python/
-          pip install cryptography -t python/
-          pip install -r requirements.txt -t python/
-          # Create layer zip from python directory
+          # Create directory structure
+          mkdir -p python/lib/python3.9/site-packages
+          
+          # Install dependencies to the correct directory
+          pip install python-jose[cryptography] --target python/lib/python3.9/site-packages
+          pip install -r requirements.txt --target python/lib/python3.9/site-packages
+          
+          # Create Lambda layer zip with correct structure
           cd python
           zip -r ../../lambda_layer.zip .
           cd ..
-          # Create function zip with just Python files
+          
+          # Create Lambda function zip with just Python code files
           zip ../lambda.zip *.py
+      
+          # Debug - List contents
+          echo "Lambda layer contents:"
+          unzip -l ../lambda_layer.zip
+
      - name: Terraform Plan
        if: github.event_name == 'pull_request'
        run: terraform plan -out=tfplan -var="environment=${GITHUB_REF##*/}"
