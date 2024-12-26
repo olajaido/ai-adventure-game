@@ -1010,11 +1010,15 @@ jobs:
        run: |
           cd bedrock-code
           mkdir -p python
+          # Install python-jose first
           pip install python-jose[cryptography] -t python/
+          pip install cryptography -t python/
           pip install -r requirements.txt -t python/
+          # Create layer zip from python directory
           cd python
           zip -r ../../lambda_layer.zip .
           cd ..
+          # Create function zip with just Python files
           zip ../lambda.zip *.py
      - name: Terraform Plan
        if: github.event_name == 'pull_request'
