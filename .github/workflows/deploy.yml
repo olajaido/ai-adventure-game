@@ -1010,21 +1010,35 @@ jobs:
        run: |
           cd bedrock-code
           # Create directory structure
-          mkdir -p python/lib/python3.9/site-packages
+          mkdir -p layer/python
           
-          # Install dependencies to the correct directory
-          pip install python-jose[cryptography] --target python/lib/python3.9/site-packages
-          pip install -r requirements.txt --target python/lib/python3.9/site-packages
+          # Install python-jose and dependencies to layer
+          pip install \
+            --platform manylinux2014_x86_64 \
+            --target=layer/python \
+            --implementation cp \
+            --python-version 3.9 \
+            --only-binary=:all: \
+            python-jose[cryptography]
           
-          # Create Lambda layer zip with correct structure
-          cd python
-          zip -r ../../lambda_layer.zip .
+          # Install other requirements
+          pip install \
+            --platform manylinux2014_x86_64 \
+            --target=layer/python \
+            --implementation cp \
+            --python-version 3.9 \
+            --only-binary=:all: \
+            -r requirements.txt
+          
+          # Create layer zip
+          cd layer
+          zip -r ../../lambda_layer.zip python/
           cd ..
           
-          # Create Lambda function zip with just Python code files
+          # Create function zip
           zip ../lambda.zip *.py
-      
-          # Debug - List contents
+          
+          # Debug output
           echo "Lambda layer contents:"
           unzip -l ../lambda_layer.zip
 
