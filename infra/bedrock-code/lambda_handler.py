@@ -348,6 +348,11 @@ cors_headers = {
     'Access-Control-Allow-Credentials': 'true'
 }
 
+from jose import jwk, jwt
+from jose.utils import base64url_decode
+import json
+import requests
+
 def verify_cognito_token(token):
     try:
         print("Starting token verification")
@@ -356,36 +361,46 @@ def verify_cognito_token(token):
         CLIENT_ID = '2se9lr8i6tolb0ud39u32mvtt9'
         REGION = 'eu-west-2'
 
+        # Get the key id from the header
+        headers = jwt.get_unverified_headers(token)
+        kid = headers['kid']
+        print(f"Token kid: {kid}")
+
         # Get the public keys from Cognito
         keys_url = f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json'
         print(f"Fetching public keys from: {keys_url}")
         response = requests.get(keys_url)
-        print("JWKS response status:", response.status_code)
         keys = response.json()['keys']
+        print(f"Keys response status: {response.status_code}")
 
-        # Get the 'kid' from the token header
-        headers = jwt.get_unverified_header(token)
-        print("Token headers:", headers)
-        kid = headers['kid']
-
-        # Find the correct key
+        # Find the key matching the kid from the token
         key = next((k for k in keys if k['kid'] == kid), None)
         if not key:
             print("No matching key found")
             return None
-
         print("Found matching key")
 
-        # Verify the token
-        claims = jwt.decode(
-            token,
-            key,
-            algorithms=['RS256'],
-            audience=CLIENT_ID,
-            issuer=f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}'
-        )
-        print("Token verified successfully. Claims:", claims)
-        return claims['sub']  # Return the user ID
+        # Get the public key
+        public_key = jwk.construct(key)
+        print("Constructed public key")
+
+        # Get message and signature (undecoded)
+        message, encoded_signature = str(token).rsplit('.', 1)
+
+        # Decode the signature
+        decoded_signature = base64url_decode(encoded_signature.encode('utf-8'))
+        print("Decoded signature")
+
+        # Verify the signature
+        if not public_key.verify(message.encode(), decoded_signature):
+            print("Signature verification failed")
+            return None
+
+        # Get claims using jose.jwt
+        claims = jwt.get_unverified_claims(token)
+        print("Token claims:", claims)
+        return claims.get('sub')
+
     except Exception as e:
         print(f"Token verification failed: {str(e)}")
         import traceback
