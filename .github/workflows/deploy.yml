@@ -936,36 +936,40 @@ jobs:
     #       zip ../lambda.zip *.py
     #       cd python/lib/python3.9/site-packages
     #       zip -r ../../../../lambda.zip .
-    
+
      - name: Package Lambda Code
        run: |
-          cd bedrock-code
-          if [ ! -f requirements.txt ]; then
-            echo "requirements.txt not found"
-            exit 1
-          fi
-          
-          # Create directory structure for Lambda layer
-          mkdir -p python/lib/python3.9/site-packages
-          
-          # Install dependencies into the layer directory with additional flags
-          pip install --platform manylinux2014_x86_64 \
-            --target=python/lib/python3.9/site-packages \
-            --implementation cp \
-            --python 3.9 \
-            --only-binary=:all: --upgrade \
-            --no-cache-dir \
-            'PyJWT[crypto]>=2.0.0' \
-            'requests>=2.25.1' \
-            'cryptography>=3.4.7' \
-            'python-jose>=3.3.0' \
-            'boto3>=1.18.0'
-          
-          # Create Lambda layer ZIP
-          cd python && zip -r ../../lambda_layer.zip . && cd ..
-          
-          # Create Lambda function ZIP including all .py files
-          zip -r ../lambda.zip *.py
+        cd bedrock-code
+        if [ ! -f requirements.txt ]; then
+          echo "requirements.txt not found"
+          exit 1
+        fi
+        
+        # Create directory structure for Lambda layer
+        mkdir -p python/lib/python3.9/site-packages
+        
+        # Show what's being installed
+        echo "Installing dependencies..."
+        pip install --platform manylinux2014_x86_64 \
+          --target=python/lib/python3.9/site-packages \
+          --implementation cp \
+          --python 3.9 \
+          --only-binary=:all: --upgrade \
+          -r requirements.txt
+        
+        # List installed packages
+        echo "Installed packages:"
+        ls python/lib/python3.9/site-packages
+        
+        # Create layer ZIP correctly
+        echo "Creating layer ZIP..."
+        cd python
+        zip -r ../../lambda_layer.zip .
+        cd ..
+        
+        # Create function ZIP
+        echo "Creating function ZIP..."
+        zip -r ../lambda.zip *.py
 
      - name: Terraform Plan
        if: github.event_name == 'pull_request'
