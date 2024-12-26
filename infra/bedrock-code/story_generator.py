@@ -696,6 +696,50 @@ class StoryGenerator:
             sleep((self.min_request_interval - time_since_last).total_seconds())
         self.last_request_time = datetime.now()
 
+    def generate_story_prompt(self, current_scene: Dict, player_state: Dict, choice: Optional[str] = None) -> str:
+        """Generate prompt for story continuation"""
+        prompt = f"""
+        You are a master storyteller creating an interactive adventure game in a world where magic and technology coexist.
+        Generate the next scene based on:
+
+        Current Scene: {current_scene.get('description', 'Starting adventure')}
+        Player's Choice: {choice if choice else 'Starting game'}
+        Player Stats: {json.dumps(player_state, cls=DecimalEncoder)}
+        
+        World Context: {json.dumps(self.game_context, cls=DecimalEncoder)}
+
+        Generate a JSON response with:
+        1. A vivid scene description (2-3 paragraphs)
+        2. Three distinct choices that meaningfully impact the story
+        3. Potential consequences for each choice (affecting player stats)
+        4. Any items or discoveries in the scene
+        5. Random events or encounters (20% chance)
+
+        Format the response exactly like this example:
+        {{
+            "scene_description": "detailed description",
+            "choices": [
+                {{
+                    "text": "choice description",
+                    "consequences": {{
+                        "health": 0,
+                        "magic": 0,
+                        "technology": 0,
+                        "charisma": 0
+                    }}
+                }}
+            ],
+            "environment": {{
+                "items": [],
+                "npcs": [],
+                "events": []
+            }}
+        }}
+        
+        Response must be valid JSON and follow this structure exactly. Make it engaging and meaningful to the story.
+        """
+        return prompt    
+
     def generate_scene(self, current_scene: Dict, player_state: Dict, choice: Optional[str] = None) -> Dict:
         """Generate a new scene based on player's current state and choices"""
         try:
