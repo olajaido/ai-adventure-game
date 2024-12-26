@@ -340,25 +340,38 @@ game_table = dynamodb.Table(os.environ['GAME_TABLE'])
 content_manager = ContentManager('game_content.json')
 analytics = PlayerAnalytics(os.environ['GAME_TABLE'])
 
+cors_headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
+    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Credentials': 'true'
+}
+
 def verify_cognito_token(token):
     try:
-        # Your Cognito pool details
+        # Your Cognito pool details - verify these match exactly with your Cognito setup
         USER_POOL_ID = 'eu-west-2_EcJ4nZ9ST'
         CLIENT_ID = '2se9lr8i6tolb0ud39u32mvtt9'
         REGION = 'eu-west-2'
 
+        print("Verifying token:", token[:50] + "...") # Log truncated token for debugging
+
         # Get the public keys from Cognito
         keys_url = f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json'
         response = requests.get(keys_url)
+        print("JWKS response status:", response.status_code)
         keys = response.json()['keys']
 
         # Get the 'kid' from the token header
         headers = jwt.get_unverified_header(token)
         kid = headers['kid']
+        print("Token KID:", kid)
 
         # Find the correct key
         key = next((k for k in keys if k['kid'] == kid), None)
         if not key:
+            print("No matching key found")
             return None
 
         # Convert the key to PEM format
@@ -373,9 +386,12 @@ def verify_cognito_token(token):
             audience=CLIENT_ID,
             issuer=f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}'
         )
+        print("Token verified successfully. Subject:", claims['sub'])
         return claims['sub']  # Return the user ID
     except Exception as e:
         print(f"Token verification failed: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return None
 def load_player_state(user_id: str) -> PlayerState:
     """Load player state from DynamoDB"""
@@ -404,19 +420,17 @@ def process_consequences(player_state: PlayerState, consequences: dict):
 def handle_game_action(event, context):
     """Main handler for game actions"""
     try:
+        # Add event logging
+        print("Received event:", json.dumps(event))
+        
         # Extract and verify token
         auth_header = event.get('headers', {}).get('authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
+            print("Authorization header missing or invalid")
             return {
                 'statusCode': 401,
                 'body': json.dumps({'error': 'No valid token provided'}),
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
-                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-                    'Access-Control-Allow-Credentials': 'true'
-                }
+                'headers': cors_headers
             }
 
         token = auth_header.split(' ')[1]
@@ -424,15 +438,9 @@ def handle_game_action(event, context):
         
         if not user_id:
             return {
-                'statusCode': 403,
+                'statusCode': 401,
                 'body': json.dumps({'error': 'Invalid token'}),
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
-                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-                    'Access-Control-Allow-Credentials': 'true'
-                }
+                'headers': cors_headers
             }
 
         # Parse request body
@@ -502,13 +510,7 @@ def handle_game_action(event, context):
                     'quests': player_state.quest_log,
                     'inventory': player_state.inventory
                 }),
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
-                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-                    'Access-Control-Allow-Credentials': 'true'
-                }
+                'headers': cors_headers
             }
             
         elif action_type == 'complete_quest':
@@ -533,13 +535,7 @@ def handle_game_action(event, context):
                     'quests': player_state.quest_log,
                     'inventory': player_state.inventory
                 }),
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
-                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-                    'Access-Control-Allow-Credentials': 'true'
-                }
+                'headers': cors_headers
             }
             
         elif action_type == 'get_player_analytics':
@@ -548,27 +544,17 @@ def handle_game_action(event, context):
             return {
                 'statusCode': 200,
                 'body': json.dumps(preferences),
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
-                    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-                    'Access-Control-Allow-Credentials': 'true'
-                }
+                'headers': cors_headers
             }
             
     except Exception as e:
         print(f"Error processing request: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return {
             'statusCode': 500,
             'body': json.dumps({'error': str(e)}),
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': 'https://dev.d18jzwlw8rkuyv.amplifyapp.com',
-                'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-                'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-                'Access-Control-Allow-Credentials': 'true'
-            }
+            'headers': cors_headers
         }
 
 def process_quest_completion(player_state: PlayerState, quest_id: str, quest_data: dict):
