@@ -918,24 +918,24 @@ jobs:
     # #      zip -r ../lambda_layer.zip python
     # #      zip -r ../lambda.zip ./*
     
-     - name: Package Lambda Code
-       run: |
-          cd bedrock-code
-          if [ ! -f requirements.txt ]; then
-            echo "requirements.txt not found"
-            exit 1
-          fi
+    #  - name: Package Lambda Code
+    #    run: |
+    #       cd bedrock-code
+    #       if [ ! -f requirements.txt ]; then
+    #         echo "requirements.txt not found"
+    #         exit 1
+    #       fi
           
-          # Install dependencies
-          pip install -r requirements.txt -t python/lib/python3.9/site-packages
+    #       # Install dependencies
+    #       pip install -r requirements.txt -t python/lib/python3.9/site-packages
           
-          # Create Lambda layer ZIP
-          zip -r ../lambda_layer.zip python
+    #       # Create Lambda layer ZIP
+    #       zip -r ../lambda_layer.zip python
           
-          # Create Lambda function ZIP including all .py files
-          zip ../lambda.zip *.py
-          cd python/lib/python3.9/site-packages
-          zip -r ../../../../lambda.zip .
+    #       # Create Lambda function ZIP including all .py files
+    #       zip ../lambda.zip *.py
+    #       cd python/lib/python3.9/site-packages
+    #       zip -r ../../../../lambda.zip .
 
     #  - name: Package Lambda Code
     #    run: |
@@ -1003,8 +1003,18 @@ jobs:
     #       # Create function ZIP
     #       echo "Creating function ZIP..."
     #       zip -r ../lambda.zip *.py
-  
 
+
+  
+     - name: Package Lambda Code
+       run: |
+          cd bedrock-code
+          mkdir -p python
+          pip install -r requirements.txt -t python/
+          cd python
+          zip -r ../../lambda_layer.zip .
+          cd ..
+          zip ../lambda.zip *.py
      - name: Terraform Plan
        if: github.event_name == 'pull_request'
        run: terraform plan -out=tfplan -var="environment=${GITHUB_REF##*/}"
