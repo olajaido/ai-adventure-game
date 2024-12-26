@@ -320,7 +320,7 @@ resource "aws_lambda_function" "game_logic" {
   role             = aws_iam_role.lambda_role.arn
   handler          = "lambda_handler.handle_game_action"
   runtime          = "python3.9"
-  timeout          = 30
+  timeout          = 60
   memory_size      = 256
   publish          = true # Enable versioning
   source_code_hash = base64sha256(filebase64(data.archive_file.lambda_zip.output_path))
