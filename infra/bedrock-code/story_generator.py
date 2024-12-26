@@ -766,9 +766,29 @@ class StoryGenerator:
             )
             
             response_body = response['body'].read().decode()
-            story_response = json.loads(response_body)
-            scene_data = json.loads(story_response.get('content', [{}])[0].get('text', '{}'))
+            response_json = json.loads(response_body)
             
+            # For debugging
+            print(f"Raw response: {json.dumps(response_json)}")
+            
+            # Get the response content
+            if isinstance(response_json, dict) and 'content' in response_json:
+                content = response_json['content']
+                if isinstance(content, list) and len(content) > 0:
+                    text = content[0].get('text', '{}')
+                    try:
+                        scene_data = json.loads(text)
+                    except json.JSONDecodeError as e:
+                        print(f"Failed to parse scene data: {str(e)}")
+                        return self._generate_fallback_scene()
+                else:
+                    print("No content found in response")
+                    return self._generate_fallback_scene()
+            else:
+                print("Unexpected response format")
+                return self._generate_fallback_scene()
+            
+            # Add metadata
             scene_data['timestamp'] = datetime.utcnow().isoformat()
             scene_data['scene_id'] = str(uuid.uuid4())
             scene_data['previous_choice'] = choice
@@ -776,6 +796,8 @@ class StoryGenerator:
             return scene_data
         except Exception as e:
             print(f"Error generating scene: {str(e)}")
+            import traceback
+            print(f"Full error details: {traceback.format_exc()}")
             return self._generate_fallback_scene()
 
     def generate_npc_dialogue(self, npc_context: Dict, player_state: Dict) -> str:
