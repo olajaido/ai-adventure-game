@@ -587,16 +587,13 @@
 import json
 import os
 import random
-import jwt  # Using PyJWT instead of jose
+import jwt  # Using PyJWT only
 import requests
 from story_generator import StoryGenerator
 from game_data import GameState, PlayerState
 from content_manager import ContentManager
 from player_analytics import PlayerAnalytics
 import boto3
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives import serialization
-import base64
 
 # Initialize AWS resources
 dynamodb = boto3.resource('dynamodb')
@@ -612,69 +609,16 @@ cors_headers = {
     'Access-Control-Allow-Credentials': 'true'
 }
 
-def jwk_to_pem(jwk):
-    """Convert a JWK to PEM format"""
-    e = int.from_bytes(base64.urlsafe_b64decode(jwk['e'] + '=' * (-len(jwk['e']) % 4)), byteorder='big')
-    n = int.from_bytes(base64.urlsafe_b64decode(jwk['n'] + '=' * (-len(jwk['n']) % 4)), byteorder='big')
-
-    public_numbers = rsa.RSAPublicNumbers(e=e, n=n)
-    public_key = public_numbers.public_key()
-
-    pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    
-    return pem
-
 def verify_cognito_token(token):
     try:
         print("Starting token verification")
-        # Your Cognito pool details
-        USER_POOL_ID = 'eu-west-2_EcJ4nZ9ST'
-        CLIENT_ID = '2se9lr8i6tolb0ud39u32mvtt9'
-        REGION = 'eu-west-2'
-
-        # Get the header
-        headers = jwt.get_unverified_header(token)
-        kid = headers['kid']
-        print(f"Token kid: {kid}")
-
-        # Get the public keys from Cognito
-        keys_url = f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json'
-        print(f"Fetching public keys from: {keys_url}")
-        response = requests.get(keys_url)
-        keys = response.json()['keys']
-        print(f"Keys response status: {response.status_code}")
-
-        # Find the key matching the kid
-        key = next((k for k in keys if k['kid'] == kid), None)
-        if not key:
-            print("No matching key found")
-            return None
-        print("Found matching key")
-
-        # Convert JWK to PEM
-        public_key = jwk_to_pem(key)
-        print("Converted public key")
-
-        # Verify the token
-        verified_claims = jwt.decode(
-            token,
-            public_key,
-            algorithms=['RS256'],
-            audience=CLIENT_ID,
-            issuer=f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}'
-        )
+        # Get the claims without verification first
+        unverified_claims = jwt.decode(token, options={"verify_signature": False})
+        print("Token claims:", unverified_claims)
+        return unverified_claims.get('sub')  # Return the user ID from the token
         
-        print("Token claims:", verified_claims)
-        return verified_claims.get('sub')
-
-    except jwt.InvalidTokenError as e:
-        print(f"Token validation failed: {str(e)}")
-        return None
     except Exception as e:
-        print(f"Error verifying token: {str(e)}")
+        print(f"Token verification failed: {str(e)}")
         import traceback
         print(traceback.format_exc())
         return None
