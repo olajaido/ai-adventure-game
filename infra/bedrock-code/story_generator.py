@@ -696,50 +696,6 @@ class StoryGenerator:
             sleep((self.min_request_interval - time_since_last).total_seconds())
         self.last_request_time = datetime.now()
 
-    def generate_story_prompt(self, current_scene: Dict, player_state: Dict, choice: Optional[str] = None) -> str:
-        """Generate prompt for story continuation"""
-        prompt = f"""
-        You are a master storyteller creating an interactive adventure game in a world where magic and technology coexist.
-        Generate the next scene based on:
-
-        Current Scene: {current_scene.get('description', 'Starting adventure')}
-        Player's Choice: {choice if choice else 'Starting game'}
-        Player Stats: {json.dumps(player_state, cls=DecimalEncoder)}
-        
-        World Context: {json.dumps(self.game_context)}
-
-        Generate a JSON response with:
-        1. A vivid scene description (2-3 paragraphs)
-        2. Three distinct choices that meaningfully impact the story
-        3. Potential consequences for each choice (affecting player stats)
-        4. Any items or discoveries in the scene
-        5. Random events or encounters (20% chance)
-
-        Format the response as shown in this example:
-        {{
-            "scene_description": "detailed description",
-            "choices": [
-                {{
-                    "text": "choice description",
-                    "consequences": {{
-                        "health": 0,
-                        "magic": 0,
-                        "technology": 0,
-                        "charisma": 0,
-                        "items": [],
-                        "story_flags": []
-                    }}
-                }}
-            ],
-            "environment": {{
-                "items": [],
-                "npcs": [],
-                "events": []
-            }}
-        }}
-        """
-        return prompt
-
     def generate_scene(self, current_scene: Dict, player_state: Dict, choice: Optional[str] = None) -> Dict:
         """Generate a new scene based on player's current state and choices"""
         try:
@@ -750,16 +706,24 @@ class StoryGenerator:
                 modelId='anthropic.claude-3-sonnet-20240229-v1:0',
                 body=json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens_to_sample": 1000,
-                    "temperature": 0.7,
-                    "top_p": 0.9,
-                    "prompt": f"\n\nHuman: {prompt}\n\nAssistant: Let me create a scene for your game."
+                    "max_tokens": 1000,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                }
+                            ]
+                        }
+                    ]
                 }, cls=DecimalEncoder)
             )
             
             response_body = response['body'].read().decode()
             story_response = json.loads(response_body)
-            scene_data = json.loads(story_response.get('completion', '{}'))
+            scene_data = json.loads(story_response.get('content', [{}])[0].get('text', '{}'))
             
             scene_data['timestamp'] = datetime.utcnow().isoformat()
             scene_data['scene_id'] = str(uuid.uuid4())
@@ -774,7 +738,6 @@ class StoryGenerator:
         """Generate dynamic NPC dialogue"""
         try:
             self._wait_for_rate_limit()
-            
             dialogue_prompt = f"""
             Generate dynamic dialogue for an NPC interaction:
             NPC Context: {json.dumps(npc_context, cls=DecimalEncoder)}
@@ -788,13 +751,24 @@ class StoryGenerator:
                 modelId='anthropic.claude-3-sonnet-20240229-v1:0',
                 body=json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens_to_sample": 300,
-                    "temperature": 0.8,
-                    "prompt": f"\n\nHuman: {dialogue_prompt}\n\nAssistant: Let me generate the NPC dialogue."
+                    "max_tokens": 300,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": dialogue_prompt
+                                }
+                            ]
+                        }
+                    ]
                 }, cls=DecimalEncoder)
             )
             
-            return json.loads(response['body'].read().decode())['completion']
+            response_body = response['body'].read().decode()
+            dialogue_response = json.loads(response_body)
+            return json.loads(dialogue_response.get('content', [{}])[0].get('text', '{}'))
         except Exception as e:
             print(f"Error generating dialogue: {str(e)}")
             return self._generate_fallback_dialogue()
@@ -803,7 +777,6 @@ class StoryGenerator:
         """Generate a unique game item"""
         try:
             self._wait_for_rate_limit()
-            
             item_prompt = f"""
             Generate a unique game item:
             Type: {item_type}
@@ -821,13 +794,24 @@ class StoryGenerator:
                 modelId='anthropic.claude-3-sonnet-20240229-v1:0',
                 body=json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens_to_sample": 300,
-                    "temperature": 0.8,
-                    "prompt": f"\n\nHuman: {item_prompt}\n\nAssistant: Here's a unique item for your game."
+                    "max_tokens": 300,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": item_prompt
+                                }
+                            ]
+                        }
+                    ]
                 }, cls=DecimalEncoder)
             )
             
-            return json.loads(response['body'].read().decode())['completion']
+            response_body = response['body'].read().decode()
+            item_response = json.loads(response_body)
+            return json.loads(item_response.get('content', [{}])[0].get('text', '{}'))
         except Exception as e:
             print(f"Error generating item: {str(e)}")
             return self._generate_fallback_item(item_type, player_level)
@@ -836,7 +820,6 @@ class StoryGenerator:
         """Generate a combat encounter"""
         try:
             self._wait_for_rate_limit()
-            
             combat_prompt = f"""
             Generate a combat encounter for a player with these stats:
             Player State: {json.dumps(player_state, cls=DecimalEncoder)}
@@ -846,17 +829,29 @@ class StoryGenerator:
                 modelId='anthropic.claude-3-sonnet-20240229-v1:0',
                 body=json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens_to_sample": 500,
-                    "temperature": 0.7,
-                    "prompt": f"\n\nHuman: {combat_prompt}\n\nAssistant: Let me create a combat encounter."
+                    "max_tokens": 500,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": combat_prompt
+                                }
+                            ]
+                        }
+                    ]
                 }, cls=DecimalEncoder)
             )
             
-            return json.loads(response['body'].read().decode())['completion']
+            response_body = response['body'].read().decode()
+            combat_response = json.loads(response_body)
+            return json.loads(combat_response.get('content', [{}])[0].get('text', '{}'))
         except Exception as e:
             print(f"Error generating combat: {str(e)}")
             return self._generate_fallback_combat()
 
+    # Fallback methods remain the same
     def _generate_fallback_scene(self) -> Dict:
         """Generate a fallback scene when main generation fails"""
         return {
