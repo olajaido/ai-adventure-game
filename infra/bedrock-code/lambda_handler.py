@@ -350,23 +350,23 @@ cors_headers = {
 
 def verify_cognito_token(token):
     try:
-        # Your Cognito pool details - verify these match exactly with your Cognito setup
+        print("Starting token verification")
+        # Your Cognito pool details
         USER_POOL_ID = 'eu-west-2_EcJ4nZ9ST'
         CLIENT_ID = '2se9lr8i6tolb0ud39u32mvtt9'
         REGION = 'eu-west-2'
 
-        print("Verifying token:", token[:50] + "...") # Log truncated token for debugging
-
         # Get the public keys from Cognito
         keys_url = f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json'
+        print(f"Fetching public keys from: {keys_url}")
         response = requests.get(keys_url)
         print("JWKS response status:", response.status_code)
         keys = response.json()['keys']
 
         # Get the 'kid' from the token header
         headers = jwt.get_unverified_header(token)
+        print("Token headers:", headers)
         kid = headers['kid']
-        print("Token KID:", kid)
 
         # Find the correct key
         key = next((k for k in keys if k['kid'] == kid), None)
@@ -374,6 +374,7 @@ def verify_cognito_token(token):
             print("No matching key found")
             return None
 
+        print("Found matching key")
         # Convert the key to PEM format
         from jwt.algorithms import RSAAlgorithm
         public_key = RSAAlgorithm.from_jwk(json.dumps(key))
@@ -386,7 +387,7 @@ def verify_cognito_token(token):
             audience=CLIENT_ID,
             issuer=f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}'
         )
-        print("Token verified successfully. Subject:", claims['sub'])
+        print("Token verified successfully. Claims:", claims)
         return claims['sub']  # Return the user ID
     except Exception as e:
         print(f"Token verification failed: {str(e)}")
@@ -423,8 +424,8 @@ def handle_game_action(event, context):
         # Add event logging
         print("Received event:", json.dumps(event))
         
-        # Extract and verify token
-        auth_header = event.get('headers', {}).get('authorization')
+        # Extract and verify token - Fix case sensitivity issue
+        auth_header = event.get('headers', {}).get('Authorization', event.get('headers', {}).get('authorization'))
         if not auth_header or not auth_header.startswith('Bearer '):
             print("Authorization header missing or invalid")
             return {
@@ -433,8 +434,12 @@ def handle_game_action(event, context):
                 'headers': cors_headers
             }
 
+        # Print token for debugging
+        print("Token received:", auth_header)
+        
         token = auth_header.split(' ')[1]
         user_id = verify_cognito_token(token)
+        print("User ID from token:", user_id)
         
         if not user_id:
             return {
