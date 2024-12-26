@@ -375,14 +375,11 @@ def verify_cognito_token(token):
             return None
 
         print("Found matching key")
-        # Convert the key to PEM format
-        from jwt.algorithms import RSAAlgorithm
-        public_key = RSAAlgorithm.from_jwk(json.dumps(key))
 
         # Verify the token
         claims = jwt.decode(
             token,
-            public_key,
+            key,
             algorithms=['RS256'],
             audience=CLIENT_ID,
             issuer=f'https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}'
