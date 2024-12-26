@@ -1010,6 +1010,7 @@ jobs:
        run: |
           cd bedrock-code
           mkdir -p python
+          pip install python-jose[cryptography] -t python/
           pip install -r requirements.txt -t python/
           cd python
           zip -r ../../lambda_layer.zip .
