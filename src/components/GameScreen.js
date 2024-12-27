@@ -202,6 +202,7 @@ function GameScreen() {
         }
     });
     const [loading, setLoading] = useState(true);
+    // Optional: Remove this line if not using error state, or use it in error handling
     const [error, setError] = useState(null);
 
     const makeApiCall = useCallback(async (method, path, body = null) => {
@@ -270,6 +271,7 @@ function GameScreen() {
                 choices: [{ text: 'Retry', consequences: {} }],
                 environment: { items: [], npcs: [], events: [] }
             });
+            // Use the error state if you want to display error details
             setError(error);
             setLoading(false);
         }
@@ -313,6 +315,17 @@ function GameScreen() {
 
     if (loading) {
         return <div className="loading">Loading your adventure...</div>;
+    }
+
+    // Optional: Add error display if needed
+    if (error) {
+        return (
+            <div className="error-container">
+                <h2>An Error Occurred</h2>
+                <p>Unable to load the game. Please try again later.</p>
+                <button onClick={generateNewScene}>Retry</button>
+            </div>
+        );
     }
 
     return (
