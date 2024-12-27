@@ -293,22 +293,18 @@
 
 // export default Profile;
 
-import React, { useState, useEffect } from 'react'; 
-import { getCurrentUser, signOut as amplifySignOut } from 'aws-amplify/auth'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
+import { getCurrentUser, signOut } from 'aws-amplify/auth'; 
 import { generateClient } from 'aws-amplify/api'; 
 import '../styles/Profile.css';  
 
-function Profile({ signOut }) {     
+function Profile({ signOut: externalSignOut }) {     
     const client = generateClient();
     const [user, setUser] = useState(null);     
     const [stats, setStats] = useState(null);     
     const [loading, setLoading] = useState(true);      
 
-    useEffect(() => {         
-        loadUserProfile();     
-    }, []);      
-
-    const loadUserProfile = async () => {         
+    const loadUserProfile = useCallback(async () => {         
         try {             
             const { userId, signInDetails } = await getCurrentUser();                          
             
@@ -332,7 +328,20 @@ function Profile({ signOut }) {
             console.error('Error loading profile:', error);             
             setLoading(false);         
         }     
-    };      
+    }, [client]);
+
+    useEffect(() => {         
+        loadUserProfile();     
+    }, [loadUserProfile]);      
+
+    const handleSignOut = async () => {
+        try {
+            await signOut();
+            externalSignOut();
+        } catch (error) {
+            console.error('Error signing out:', error);
+        }
+    };
 
     if (loading) {         
         return <div className="loading">Loading profile...</div>;     
@@ -342,7 +351,7 @@ function Profile({ signOut }) {
         <div className="profile">             
             <div className="profile-header">                 
                 <h2>Adventurer Profile</h2>                 
-                <button onClick={signOut} className="sign-out-button">                     
+                <button onClick={handleSignOut} className="sign-out-button">                     
                     Sign Out                 
                 </button>             
             </div>             

@@ -50,7 +50,7 @@
 
 // export default Inventory;
 
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
 import { generateClient } from 'aws-amplify/api'; 
 import '../styles/Inventory.css';  
 
@@ -59,11 +59,7 @@ function Inventory() {
     const [inventory, setInventory] = useState([]);     
     const [loading, setLoading] = useState(true);      
 
-    useEffect(() => {         
-        loadInventory();     
-    }, []);      
-
-    const loadInventory = async () => {         
+    const loadInventory = useCallback(async () => {         
         try {             
             const response = await client.get({
                 apiName: 'gameApi', 
@@ -76,7 +72,11 @@ function Inventory() {
             console.error('Error loading inventory:', error);             
             setLoading(false);         
         }     
-    };      
+    }, [client]);
+
+    useEffect(() => {         
+        loadInventory();     
+    }, [loadInventory]);      
 
     if (loading) {         
         return <div className="loading">Loading inventory...</div>;     
