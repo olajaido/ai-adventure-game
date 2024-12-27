@@ -202,13 +202,15 @@ function GameScreen() {
         }
     });
     const [loading, setLoading] = useState(true);
-    // Optional: Remove this line if not using error state, or use it in error handling
     const [error, setError] = useState(null);
 
     const makeApiCall = useCallback(async (method, path, body = null) => {
         try {
-            const session = await fetchAuthSession();
+            console.log('Attempting API call:', { method, path, body });
             
+            const session = await fetchAuthSession();
+            console.log('Session retrieved:', session);
+
             const requestConfig = {
                 apiName: 'gameApi',
                 path: path,
@@ -221,13 +223,31 @@ function GameScreen() {
                 }
             };
 
-            const response = method === 'GET' 
-                ? await client.get(requestConfig) 
-                : await client.post(requestConfig);
+            console.log('Full Request Config:', JSON.stringify(requestConfig, null, 2));
 
+            let response;
+            try {
+                response = method === 'GET' 
+                    ? await client.get(requestConfig) 
+                    : await client.post(requestConfig);
+            } catch (apiError) {
+                console.error('Detailed API Error:', {
+                    message: apiError.message,
+                    name: apiError.name,
+                    stack: apiError.stack,
+                    config: requestConfig
+                });
+                throw apiError;
+            }
+
+            console.log('Full Response:', response);
             return response;
         } catch (error) {
-            console.error('API Call Error:', error);
+            console.error('Comprehensive API Call Error:', {
+                message: error.message,
+                name: error.name,
+                stack: error.stack
+            });
             throw error;
         }
     }, [client]);
@@ -240,38 +260,66 @@ function GameScreen() {
                 player_choice: null,
             });
 
-            console.log('Full API Response:', response);
+            console.log('Generate Scene Full Response:', response);
 
-            // Parse the response body
-            let data = response.body 
-                ? (typeof response.body === 'string' 
-                    ? JSON.parse(response.body) 
-                    : response.body)
-                : response;
-
-            console.log('Parsed Scene Data:', data);
-
-            // Validate the data structure
-            const validatedGameState = {
-                scene_description: data.scene_description || 'Unable to generate scene',
-                choices: data.choices || [],
-                environment: data.environment || {
-                    items: [],
-                    npcs: [],
-                    events: []
+            // Extremely flexible parsing
+            let data;
+            if (typeof response === 'string') {
+                try {
+                    data = JSON.parse(response);
+                } catch {
+                    data = response;
                 }
+            } else if (response.body) {
+                try {
+                    data = typeof response.body === 'string' 
+                        ? JSON.parse(response.body) 
+                        : response.body;
+                } catch {
+                    data = response.body;
+                }
+            } else {
+                data = response;
+            }
+
+            console.log('Parsed Scene Data:', JSON.stringify(data, null, 2));
+
+            // Validate the data structure with extensive fallbacks
+            const validatedGameState = {
+                scene_description: 
+                    data.scene_description || 
+                    data.currentScene || 
+                    data.scene || 
+                    'Unable to generate scene',
+                choices: 
+                    data.choices || 
+                    data.options || 
+                    (typeof data === 'object' && Object.keys(data).filter(k => k.includes('choice'))) || 
+                    [],
+                environment: 
+                    data.environment || {
+                        items: [],
+                        npcs: [],
+                        events: []
+                    }
             };
+
+            console.log('Validated Game State:', JSON.stringify(validatedGameState, null, 2));
 
             setGameState(validatedGameState);
             setLoading(false);
         } catch (error) {
-            console.error('Scene Generation Error:', error);
+            console.error('Scene Generation Full Error:', {
+                message: error.message,
+                name: error.name,
+                stack: error.stack
+            });
+            
             setGameState({
-                scene_description: 'An error occurred. Please try again.',
+                scene_description: 'An unexpected error occurred. Please try again.',
                 choices: [{ text: 'Retry', consequences: {} }],
                 environment: { items: [], npcs: [], events: [] }
             });
-            // Use the error state if you want to display error details
             setError(error);
             setLoading(false);
         }
@@ -285,20 +333,43 @@ function GameScreen() {
                 player_choice: choice,
             });
 
-            let data = response.body 
-                ? (typeof response.body === 'string' 
-                    ? JSON.parse(response.body) 
-                    : response.body)
-                : response;
+            // Similar parsing logic as generateNewScene
+            let data;
+            if (typeof response === 'string') {
+                try {
+                    data = JSON.parse(response);
+                } catch {
+                    data = response;
+                }
+            } else if (response.body) {
+                try {
+                    data = typeof response.body === 'string' 
+                        ? JSON.parse(response.body) 
+                        : response.body;
+                } catch {
+                    data = response.body;
+                }
+            } else {
+                data = response;
+            }
 
             const validatedGameState = {
-                scene_description: data.scene_description || 'Unable to generate scene',
-                choices: data.choices || [],
-                environment: data.environment || {
-                    items: [],
-                    npcs: [],
-                    events: []
-                }
+                scene_description: 
+                    data.scene_description || 
+                    data.currentScene || 
+                    data.scene || 
+                    'Unable to generate scene',
+                choices: 
+                    data.choices || 
+                    data.options || 
+                    (typeof data === 'object' && Object.keys(data).filter(k => k.includes('choice'))) || 
+                    [],
+                environment: 
+                    data.environment || {
+                        items: [],
+                        npcs: [],
+                        events: []
+                    }
             };
 
             setGameState(validatedGameState);
@@ -317,12 +388,12 @@ function GameScreen() {
         return <div className="loading">Loading your adventure...</div>;
     }
 
-    // Optional: Add error display if needed
     if (error) {
         return (
             <div className="error-container">
                 <h2>An Error Occurred</h2>
                 <p>Unable to load the game. Please try again later.</p>
+                <pre>{JSON.stringify(error, null, 2)}</pre>
                 <button onClick={generateNewScene}>Retry</button>
             </div>
         );
@@ -338,21 +409,21 @@ function GameScreen() {
                     {gameState.choices.map((choice, index) => (
                         <button
                             key={index}
-                            onClick={() => makeChoice(choice.text)}
+                            onClick={() => makeChoice(typeof choice === 'string' ? choice : choice.text)}
                             className="choice-button"
                             disabled={loading}
                         >
-                            {choice.text}
+                            {typeof choice === 'string' ? choice : choice.text}
                         </button>
                     ))}
                 </div>
             </div>
-            {gameState.environment.items.length > 0 && (
+            {gameState.environment.items && gameState.environment.items.length > 0 && (
                 <div className="environment-items">
                     <h3>Items in the Environment:</h3>
                     {gameState.environment.items.map((item, index) => (
                         <div key={index} className="environment-item">
-                            {item.name}
+                            {typeof item === 'string' ? item : item.name}
                         </div>
                     ))}
                 </div>
