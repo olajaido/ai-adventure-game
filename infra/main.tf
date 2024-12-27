@@ -318,7 +318,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Resource = [
           aws_dynamodb_table.game_data.arn,
           aws_dynamodb_table.story_cache.arn,
-          "${aws_dynamodb_table.story_cache.arn}/index/*"  # Allow access to GSI
+          "${aws_dynamodb_table.story_cache.arn}/index/*" # Allow access to GSI
         ]
       },
       {
@@ -376,9 +376,9 @@ resource "aws_lambda_function" "game_logic" {
 
   environment {
     variables = {
-      GAME_TABLE   = aws_dynamodb_table.game_data.name
-      CONTENT_PATH = "/var/task/game_content.json"
-      ENVIRONMENT  = var.environment
+      GAME_TABLE        = aws_dynamodb_table.game_data.name
+      CONTENT_PATH      = "/var/task/game_content.json"
+      ENVIRONMENT       = var.environment
       STORY_CACHE_TABLE = aws_dynamodb_table.story_cache.name
     }
   }
