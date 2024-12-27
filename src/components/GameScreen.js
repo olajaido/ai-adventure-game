@@ -419,43 +419,34 @@ function GameScreen() {
     const [error, setError] = useState(null);
 
     const makeApiCall = useCallback(async (body) => {
-        let authSession;
         try {
-            // First, ensure we have a valid auth session
-            authSession = await fetchAuthSession();
-            if (!authSession?.tokens?.idToken) {
+            const session = await fetchAuthSession();
+            if (!session?.tokens?.idToken) {
                 throw new Error('Authentication required');
             }
 
-            const response = await post({
+            const result = await post({
                 apiName: 'gameApi',
                 path: '/generate-story',
                 options: {
-                    headers: {
-                        Authorization: `Bearer ${authSession.tokens.idToken.toString()}`
-                    },
-                    body: JSON.stringify(body)
+                    body
                 }
-            });
+            }).response;
 
-            // Check if we have a valid response
-            if (!response?.body) {
-                throw new Error('Invalid response from server');
+            // Parse the response if needed
+            let data = result;
+            if (typeof result === 'string') {
+                try {
+                    data = JSON.parse(result);
+                } catch (e) {
+                    console.error('Failed to parse response:', e);
+                    throw new Error('Invalid response format');
+                }
             }
 
-            return response.body;
+            return data;
         } catch (error) {
-            console.error('API Error:', {
-                message: error.message,
-                name: error.name,
-                status: error.statusCode
-            });
-            
-            // Handle specific error cases
-            if (error.statusCode === 401 || error.message.includes('Unauthorized')) {
-                throw new Error('Session expired. Please sign in again.');
-            }
-            
+            console.error('API Error:', error);
             throw error;
         }
     }, []);
@@ -470,26 +461,18 @@ function GameScreen() {
                 player_choice: null
             });
 
-            // Handle string response
-            const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
-
-            // Validate the data before setting state
-            if (!parsedData) {
-                throw new Error('Invalid game data received');
-            }
-
             const validatedGameState = {
-                scene_description: parsedData.scene_description || 
-                                 parsedData.currentScene || 
-                                 parsedData.scene || 
+                scene_description: data?.scene_description || 
+                                 data?.currentScene || 
+                                 data?.scene || 
                                  'Start your adventure...',
-                choices: Array.isArray(parsedData.choices) ? parsedData.choices :
-                        Array.isArray(parsedData.options) ? parsedData.options : 
+                choices: Array.isArray(data?.choices) ? data.choices :
+                        Array.isArray(data?.options) ? data.options : 
                         [{ text: 'Begin Adventure', consequences: {} }],
                 environment: {
-                    items: Array.isArray(parsedData.environment?.items) ? parsedData.environment.items : [],
-                    npcs: Array.isArray(parsedData.environment?.npcs) ? parsedData.environment.npcs : [],
-                    events: Array.isArray(parsedData.environment?.events) ? parsedData.environment.events : []
+                    items: Array.isArray(data?.environment?.items) ? data.environment.items : [],
+                    npcs: Array.isArray(data?.environment?.npcs) ? data.environment.npcs : [],
+                    events: Array.isArray(data?.environment?.events) ? data.environment.events : []
                 }
             };
 
@@ -497,7 +480,6 @@ function GameScreen() {
         } catch (error) {
             console.error('Scene Generation Error:', error);
             setError(error);
-            // Keep the current scene but add a retry option
             setGameState(prev => ({
                 ...prev,
                 scene_description: error.message || 'An error occurred. Please try again.',
@@ -507,10 +489,6 @@ function GameScreen() {
             setLoading(false);
         }
     }, [makeApiCall]);
-
-    useEffect(() => {
-        generateNewScene();
-    }, [generateNewScene]);
 
     const makeChoice = useCallback(async (choice) => {
         try {
@@ -522,24 +500,18 @@ function GameScreen() {
                 player_choice: choice
             });
 
-            const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
-
-            if (!parsedData) {
-                throw new Error('Invalid game data received');
-            }
-
             const validatedGameState = {
-                scene_description: parsedData.scene_description || 
-                                 parsedData.currentScene || 
-                                 parsedData.scene || 
+                scene_description: data?.scene_description || 
+                                 data?.currentScene || 
+                                 data?.scene || 
                                  'Continue your adventure...',
-                choices: Array.isArray(parsedData.choices) ? parsedData.choices :
-                        Array.isArray(parsedData.options) ? parsedData.options : 
+                choices: Array.isArray(data?.choices) ? data.choices :
+                        Array.isArray(data?.options) ? data.options : 
                         [{ text: 'Continue', consequences: {} }],
                 environment: {
-                    items: Array.isArray(parsedData.environment?.items) ? parsedData.environment.items : [],
-                    npcs: Array.isArray(parsedData.environment?.npcs) ? parsedData.environment.npcs : [],
-                    events: Array.isArray(parsedData.environment?.events) ? parsedData.environment.events : []
+                    items: Array.isArray(data?.environment?.items) ? data.environment.items : [],
+                    npcs: Array.isArray(data?.environment?.npcs) ? data.environment.npcs : [],
+                    events: Array.isArray(data?.environment?.events) ? data.environment.events : []
                 }
             };
 
@@ -547,7 +519,6 @@ function GameScreen() {
         } catch (error) {
             console.error('Choice Processing Error:', error);
             setError(error);
-            // Keep the current scene but add a retry option
             setGameState(prev => ({
                 ...prev,
                 choices: [{ text: 'Retry', consequences: {} }]
@@ -556,6 +527,10 @@ function GameScreen() {
             setLoading(false);
         }
     }, [makeApiCall, gameState.scene_description]);
+
+    useEffect(() => {
+        generateNewScene();
+    }, [generateNewScene]);
 
     if (loading) {
         return <div className="loading">Loading your adventure...</div>;
