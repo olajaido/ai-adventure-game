@@ -648,7 +648,7 @@ function GameScreen() {
 
             console.log('Making API call with body:', body);
 
-            const result = await post({
+            const response = await post({
                 apiName: 'gameApi',
                 path: '/generate-story',
                 options: {
@@ -659,25 +659,35 @@ function GameScreen() {
                 }
             }).response;
 
-            console.log('Raw API Response:', result);
+            console.log('Raw API Response:', response);
 
-            let data = result;
-            if (typeof result === 'string') {
+            // Handle ReadableStream in the response body
+            let jsonData;
+            if (response.body instanceof ReadableStream) {
+                const reader = response.body.getReader();
+                let result = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    result += new TextDecoder().decode(value);
+                }
                 try {
-                    data = JSON.parse(result);
+                    jsonData = JSON.parse(result);
                 } catch (e) {
-                    console.error('Failed to parse response:', e);
+                    console.error('Failed to parse response stream:', e);
                     throw new Error('Invalid response format');
                 }
+            } else {
+                jsonData = response.body;
             }
 
-            console.log('Processed API Response:', data);
+            console.log('Processed API Response:', jsonData);
             
-            if (!data || typeof data !== 'object') {
+            if (!jsonData || typeof jsonData !== 'object') {
                 throw new Error('Invalid response data structure');
             }
 
-            return data;
+            return jsonData;
         } catch (error) {
             console.error('API Error Details:', {
                 message: error.message,
@@ -756,10 +766,10 @@ function GameScreen() {
                 scene_description: data?.scene_description || 
                                  data?.currentScene || 
                                  data?.scene || 
-                                 'Continue your adventure...',
+                                 null,
                 choices: Array.isArray(data?.choices) ? data.choices :
                         Array.isArray(data?.options) ? data.options : 
-                        [{ text: 'Continue', consequences: {} }],
+                        [],
                 environment: {
                     items: Array.isArray(data?.environment?.items) ? data.environment.items : [],
                     npcs: Array.isArray(data?.environment?.npcs) ? data.environment.npcs : [],
@@ -769,11 +779,11 @@ function GameScreen() {
 
             console.log('Validated choice game state:', validatedGameState);
 
-            if (validatedGameState.scene_description !== 'Continue your adventure...') {
-                setGameState(validatedGameState);
-            } else {
-                console.warn('Received default scene description, may indicate an issue');
+            if (!validatedGameState.scene_description) {
+                throw new Error('Invalid scene data received');
             }
+
+            setGameState(validatedGameState);
         } catch (error) {
             console.error('Choice Processing Error:', error);
             setError(error);
