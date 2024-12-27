@@ -185,7 +185,7 @@
 
 // export default GameScreen;
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { get, post } from 'aws-amplify/api';
 import { fetchAuthSession } from '@aws-amplify/auth';
 import '../styles/GameScreen.css';
