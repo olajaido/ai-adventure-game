@@ -53,6 +53,48 @@ resource "aws_dynamodb_table" "game_data" {
     Project     = var.project_name
   }
 }
+# DynamoDB Table for story cache
+resource "aws_dynamodb_table" "story_cache" {
+  name         = "${var.project_name}-story-cache"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "scene_id"
+  range_key    = "base_scene_id"
+
+  # Primary attributes
+  attribute {
+    name = "scene_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "base_scene_id"
+    type = "S"
+  }
+
+  # Add TTL for automatic cleanup
+  ttl {
+    attribute_name = "expiry_time"
+    enabled        = true
+  }
+
+  # Optional: Add GSI for efficient querying
+  attribute {
+    name = "timestamp"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "TimestampIndex"
+    hash_key        = "base_scene_id"
+    range_key       = "timestamp"
+    projection_type = "ALL"
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
 resource "aws_amplify_app" "game_app" {
   name = "${var.project_name}-${var.environment}"
 
@@ -253,6 +295,7 @@ resource "aws_iam_role" "lambda_role" {
 }
 
 # IAM policy for Lambda role
+# Update the existing lambda policy
 resource "aws_iam_role_policy" "lambda_policy" {
   name = "${var.project_name}-lambda-policy-${var.environment}"
   role = aws_iam_role.lambda_role.id
@@ -268,9 +311,15 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:BatchGetItem"
         ]
-        Resource = [aws_dynamodb_table.game_data.arn]
+        Resource = [
+          aws_dynamodb_table.game_data.arn,
+          aws_dynamodb_table.story_cache.arn,
+          "${aws_dynamodb_table.story_cache.arn}/index/*"  # Allow access to GSI
+        ]
       },
       {
         Effect = "Allow"
@@ -330,6 +379,7 @@ resource "aws_lambda_function" "game_logic" {
       GAME_TABLE   = aws_dynamodb_table.game_data.name
       CONTENT_PATH = "/var/task/game_content.json"
       ENVIRONMENT  = var.environment
+      STORY_CACHE_TABLE = aws_dynamodb_table.story_cache.name
     }
   }
 
@@ -608,4 +658,8 @@ output "identity_pool_id" {
 output "api_endpoint" {
   value       = aws_api_gateway_stage.game_api.invoke_url
   description = "API Gateway endpoint URL"
+}
+output "story_cache_table_name" {
+  value       = aws_dynamodb_table.story_cache.name
+  description = "Name of the DynamoDB table used for story caching"
 }
