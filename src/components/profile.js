@@ -301,18 +301,24 @@ import '../styles/Profile.css';
 function Profile({ signOut: externalSignOut }) {     
     const [user, setUser] = useState(null);     
     const [stats, setStats] = useState(null);     
-    const [loading, setLoading] = useState(true);      
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const parseResponse = useCallback((response) => {
         try {
+            console.log('Parsing Response:', response);
+            
             if (typeof response === 'string') {
                 return JSON.parse(response);
             }
             
             if (response.body) {
-                return typeof response.body === 'string' 
+                const parsedBody = typeof response.body === 'string' 
                     ? JSON.parse(response.body)
                     : response.body;
+                
+                console.log('Parsed Body:', parsedBody);
+                return parsedBody;
             }
             
             return response;
@@ -336,25 +342,50 @@ function Profile({ signOut: externalSignOut }) {
                 }
             };
 
-            const userStats = await get(requestConfig);
-            
-            const parsedStats = parseResponse(userStats);
+            console.log('Detailed Request Config:', JSON.stringify(requestConfig, null, 2));
 
-            setUser({                 
-                id: userId,                 
-                username: signInDetails?.loginId,                 
-                attributes: {                     
-                    email: signInDetails?.email                 
-                }             
-            });              
+            try {
+                const userStats = await get(requestConfig);
 
-            setStats(parsedStats);             
-            setLoading(false);         
+                console.log('Detailed API Response:', JSON.stringify(userStats, null, 2));
+                
+                const parsedStats = parseResponse(userStats);
+
+                console.log('Parsed User Stats:', parsedStats);
+
+                setUser({                 
+                    id: userId,                 
+                    username: signInDetails?.loginId,                 
+                    attributes: {                     
+                        email: signInDetails?.email                 
+                    }             
+                });              
+
+                setStats(parsedStats);             
+                setLoading(false);
+            } catch (apiError) {
+                console.error('Detailed API Error:', {
+                    message: apiError.message,
+                    name: apiError.name,
+                    stack: apiError.stack
+                });
+                setError(apiError);
+                setLoading(false);
+            }
         } catch (error) {             
-            console.error('Error loading profile:', error);             
-            setLoading(false);         
+            console.error('Authentication or Profile Load Error:', {
+                message: error.message,
+                name: error.name,
+                stack: error.stack
+            });
+            setError(error);
+            setLoading(false);
         }     
     }, [parseResponse]);
+
+    useEffect(() => {         
+        loadUserProfile();     
+    }, [loadUserProfile]);      
 
     const handleSignOut = async () => {
         try {
@@ -367,13 +398,25 @@ function Profile({ signOut: externalSignOut }) {
         }
     };
 
-    useEffect(() => {         
-        loadUserProfile();     
-    }, [loadUserProfile]);      
+    const retryLoadProfile = () => {
+        setError(null);
+        loadUserProfile();
+    };
 
     if (loading) {         
         return <div className="loading">Loading profile...</div>;     
     }      
+
+    if (error) {
+        return (
+            <div className="error-container">
+                <h2>An Error Occurred</h2>
+                <p>Unable to load profile. Please try again.</p>
+                <pre>{JSON.stringify(error, null, 2)}</pre>
+                <button onClick={retryLoadProfile}>Retry</button>
+            </div>
+        );
+    }
 
     return (         
         <div className="profile">             

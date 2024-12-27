@@ -57,18 +57,24 @@ import '../styles/Inventory.css';
 
 function Inventory() {     
     const [inventory, setInventory] = useState([]);     
-    const [loading, setLoading] = useState(true);      
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const parseResponse = useCallback((response) => {
         try {
+            console.log('Parsing Response:', response);
+            
             if (typeof response === 'string') {
                 return JSON.parse(response);
             }
             
             if (response.body) {
-                return typeof response.body === 'string' 
+                const parsedBody = typeof response.body === 'string' 
                     ? JSON.parse(response.body)
                     : response.body;
+                
+                console.log('Parsed Body:', parsedBody);
+                return parsedBody;
             }
             
             return response;
@@ -93,15 +99,36 @@ function Inventory() {
                 }
             };
 
-            const response = await get(requestConfig);
-            
-            const data = parseResponse(response);
-            
-            setInventory(data.items || data.inventory || []);             
-            setLoading(false);         
+            console.log('Detailed Request Config:', JSON.stringify(requestConfig, null, 2));
+
+            try {
+                const response = await get(requestConfig);
+
+                console.log('Detailed API Response:', JSON.stringify(response, null, 2));
+                
+                const data = parseResponse(response);
+                
+                console.log('Parsed Inventory Data:', data);
+                
+                setInventory(data.items || data.inventory || []);             
+                setLoading(false);
+            } catch (apiError) {
+                console.error('Detailed API Error:', {
+                    message: apiError.message,
+                    name: apiError.name,
+                    stack: apiError.stack
+                });
+                setError(apiError);
+                setLoading(false);
+            }
         } catch (error) {             
-            console.error('Error loading inventory:', error);             
-            setLoading(false);         
+            console.error('Authentication or Inventory Load Error:', {
+                message: error.message,
+                name: error.name,
+                stack: error.stack
+            });
+            setError(error);
+            setLoading(false);
         }     
     }, [parseResponse]);
 
@@ -109,9 +136,25 @@ function Inventory() {
         loadInventory();     
     }, [loadInventory]);      
 
+    const retryLoadInventory = () => {
+        setError(null);
+        loadInventory();
+    };
+
     if (loading) {         
         return <div className="loading">Loading inventory...</div>;     
     }      
+
+    if (error) {
+        return (
+            <div className="error-container">
+                <h2>An Error Occurred</h2>
+                <p>Unable to load inventory. Please try again.</p>
+                <pre>{JSON.stringify(error, null, 2)}</pre>
+                <button onClick={retryLoadInventory}>Retry</button>
+            </div>
+        );
+    }
 
     return (         
         <div className="inventory">             

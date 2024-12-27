@@ -205,14 +205,19 @@ function GameScreen() {
 
     const parseResponse = useCallback((response) => {
         try {
+            console.log('Parsing Response:', response);
+            
             if (typeof response === 'string') {
                 return JSON.parse(response);
             }
             
             if (response.body) {
-                return typeof response.body === 'string' 
+                const parsedBody = typeof response.body === 'string' 
                     ? JSON.parse(response.body)
                     : response.body;
+                
+                console.log('Parsed Body:', parsedBody);
+                return parsedBody;
             }
             
             return response;
@@ -238,16 +243,26 @@ function GameScreen() {
                 }
             };
 
-            console.log('Full Request Config:', requestConfig);
+            console.log('Detailed Request Config:', JSON.stringify(requestConfig, null, 2));
 
-            const response = method === 'GET' 
-                ? await get(requestConfig)
-                : await post(requestConfig);
+            try {
+                const response = method === 'GET' 
+                    ? await get(requestConfig)
+                    : await post(requestConfig);
 
-            console.log('Full API Response:', response);
-            return response;
+                console.log('Detailed API Response:', JSON.stringify(response, null, 2));
+                return response;
+            } catch (apiError) {
+                console.error('Detailed API Error:', {
+                    message: apiError.message,
+                    name: apiError.name,
+                    stack: apiError.stack,
+                    config: requestConfig
+                });
+                throw apiError;
+            }
         } catch (error) {
-            console.error('Comprehensive API Call Error:', {
+            console.error('Authentication or API Call Error:', {
                 message: error.message,
                 name: error.name,
                 stack: error.stack
@@ -266,6 +281,8 @@ function GameScreen() {
 
             const data = parseResponse(response);
 
+            console.log('Parsed Scene Data:', data);
+
             const validatedGameState = {
                 scene_description: 
                     data.scene_description || 
@@ -283,6 +300,8 @@ function GameScreen() {
                         events: []
                     }
             };
+
+            console.log('Validated Game State:', validatedGameState);
 
             setGameState(validatedGameState);
             setLoading(false);
