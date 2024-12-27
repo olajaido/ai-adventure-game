@@ -185,7 +185,7 @@
 
 // export default GameScreen;
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { get, post } from 'aws-amplify/api';
 import { fetchAuthSession } from '@aws-amplify/auth';
 import '../styles/GameScreen.css';
@@ -203,7 +203,8 @@ function GameScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const parseResponse = (response) => {
+    // Wrap parseResponse in useCallback
+    const parseResponse = useCallback((response) => {
         try {
             if (typeof response === 'string') {
                 return JSON.parse(response);
@@ -220,7 +221,7 @@ function GameScreen() {
             console.error('Response parsing error:', error);
             return response;
         }
-    };
+    }, []);
 
     const makeApiCall = useCallback(async (method, path, body = null) => {
         try {
@@ -297,7 +298,7 @@ function GameScreen() {
         }
     }, [makeApiCall, parseResponse]);
 
-    const makeChoice = async (choice) => {
+    const makeChoice = useCallback(async (choice) => {
         try {
             setLoading(true);
             const response = await makeApiCall('POST', '/generate-story', {
@@ -331,7 +332,7 @@ function GameScreen() {
             console.error('Choice Processing Error:', error);
             setLoading(false);
         }
-    };
+    }, [makeApiCall, parseResponse, gameState.scene_description]);
 
     useEffect(() => {
         generateNewScene();
