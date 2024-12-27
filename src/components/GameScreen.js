@@ -421,7 +421,9 @@ function GameScreen() {
     const makeApiCall = useCallback(async (body) => {
         try {
             const session = await fetchAuthSession();
-            if (!session?.tokens?.idToken) {
+            const idToken = session.tokens?.idToken?.toString();
+            
+            if (!idToken) {
                 throw new Error('Authentication required');
             }
 
@@ -429,7 +431,10 @@ function GameScreen() {
                 apiName: 'gameApi',
                 path: '/generate-story',
                 options: {
-                    body
+                    headers: {
+                        Authorization: `Bearer ${idToken}`
+                    },
+                    body: body
                 }
             }).response;
 
@@ -446,7 +451,18 @@ function GameScreen() {
 
             return data;
         } catch (error) {
-            console.error('API Error:', error);
+            // Log detailed error information
+            console.error('API Error Details:', {
+                message: error.message,
+                name: error.name,
+                code: error.code || error.statusCode,
+                stack: error.stack
+            });
+            
+            if (error.message.includes('Unauthorized') || error.statusCode === 401) {
+                throw new Error('Session expired. Please sign in again.');
+            }
+            
             throw error;
         }
     }, []);
