@@ -81,12 +81,6 @@ resource "aws_dynamodb_table" "story_cache" {
     enabled        = true
   }
 
-  # Optional: Add GSI for efficient querying
-  attribute {
-    name = "timestamp"
-    type = "S"
-  }
-
   global_secondary_index {
     name            = "BaseSceneIndex"
     hash_key        = "base_scene_id"
