@@ -401,7 +401,7 @@
 // export default GameScreen;
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { get, post } from 'aws-amplify/api';
+import { post } from 'aws-amplify/api';
 import { fetchAuthSession } from '@aws-amplify/auth';
 import '../styles/GameScreen.css';
 
@@ -418,35 +418,7 @@ function GameScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const parseResponse = useCallback((response) => {
-        try {
-            if (!response) {
-                throw new Error('Empty response received');
-            }
-
-            let parsedData = response;
-            
-            if (typeof response === 'string') {
-                parsedData = JSON.parse(response);
-            } else if (response.body) {
-                parsedData = typeof response.body === 'string' 
-                    ? JSON.parse(response.body)
-                    : response.body;
-            }
-
-            // If we have a response property, that's our data
-            if (parsedData.response) {
-                parsedData = parsedData.response;
-            }
-
-            return parsedData;
-        } catch (error) {
-            console.error('Response parsing error:', error);
-            throw new Error(`Failed to parse response: ${error.message}`);
-        }
-    }, []);
-
-    const makeApiCall = useCallback(async (method, path, body = null) => {
+    const makeApiCall = useCallback(async (body) => {
         try {
             const session = await fetchAuthSession();
             const idToken = session.tokens?.idToken?.toString();
@@ -457,28 +429,15 @@ function GameScreen() {
 
             const requestConfig = {
                 apiName: 'gameApi',
-                path: path,
+                path: '/generate-story',
                 options: {
-                    headers: {
-                        Authorization: `Bearer ${idToken}`,
-                        'Content-Type': 'application/json'
-                    }
+                    body: JSON.stringify(body)
                 }
             };
 
-            if (body) {
-                requestConfig.options.body = JSON.stringify(body);
-            }
-
-            const response = method === 'GET' 
-                ? await get(requestConfig)
-                : await post(requestConfig);
-
-            if (!response) {
-                throw new Error('No response received from API');
-            }
-
-            return response;
+            const { body: responseBody } = await post(requestConfig);
+            
+            return responseBody;
         } catch (error) {
             console.error('API Call Error:', {
                 message: error.message,
@@ -494,12 +453,15 @@ function GameScreen() {
             setLoading(true);
             setError(null);
             
-            const response = await makeApiCall('POST', '/generate-story', {
+            const response = await makeApiCall({
                 current_scene: 'start',
-                player_choice: null,
+                player_choice: null
             });
 
-            const data = parseResponse(response);
+            let data = response;
+            if (typeof response === 'string') {
+                data = JSON.parse(response);
+            }
 
             const validatedGameState = {
                 scene_description: 
@@ -528,19 +490,22 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall, parseResponse]);
+    }, [makeApiCall]);
 
     const makeChoice = useCallback(async (choice) => {
         try {
             setLoading(true);
             setError(null);
             
-            const response = await makeApiCall('POST', '/generate-story', {
+            const response = await makeApiCall({
                 current_scene: gameState.scene_description,
-                player_choice: choice,
+                player_choice: choice
             });
 
-            const data = parseResponse(response);
+            let data = response;
+            if (typeof response === 'string') {
+                data = JSON.parse(response);
+            }
 
             const validatedGameState = {
                 scene_description: 
@@ -568,7 +533,7 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall, parseResponse, gameState.scene_description]);
+    }, [makeApiCall, gameState.scene_description]);
 
     useEffect(() => {
         generateNewScene();
@@ -583,7 +548,6 @@ function GameScreen() {
             <div className="error-container">
                 <h2>An Error Occurred</h2>
                 <p>Unable to load the game. Please try again later.</p>
-                <pre>{JSON.stringify(error, null, 2)}</pre>
                 <button onClick={generateNewScene} className="retry-button">
                     Retry
                 </button>

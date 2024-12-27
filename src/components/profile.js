@@ -496,22 +496,15 @@ function Profile({ signOut: externalSignOut }) {
             const requestConfig = {
                 apiName: 'gameApi',
                 path: `/user-stats/${currentUser.userId}`,
-                options: {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                }
+                options: {}
             };
 
-            const response = await get(requestConfig);
+            const { body } = await get(requestConfig);
             
-            if (!response || !response.body) {
-                throw new Error('Invalid response from API');
+            let userStats = body;
+            if (typeof body === 'string') {
+                userStats = JSON.parse(body);
             }
-
-            const userStats = typeof response.body === 'string' 
-                ? JSON.parse(response.body) 
-                : response.body;
 
             setUser({
                 id: currentUser.userId,
@@ -541,7 +534,6 @@ function Profile({ signOut: externalSignOut }) {
                 playTime: userStats.playTime || 0,
                 lastPlayed: userStats.lastPlayed || null
             });
-
         } catch (error) {
             console.error('Profile Load Error:', {
                 message: error.message,
@@ -569,11 +561,6 @@ function Profile({ signOut: externalSignOut }) {
         }
     };
 
-    const retryLoadProfile = () => {
-        setError(null);
-        loadUserProfile();
-    };
-
     if (loading) {
         return <div className="loading">Loading profile...</div>;
     }
@@ -583,8 +570,7 @@ function Profile({ signOut: externalSignOut }) {
             <div className="error-container">
                 <h2>An Error Occurred</h2>
                 <p>Unable to load profile. Please try again.</p>
-                <pre>{JSON.stringify(error, null, 2)}</pre>
-                <button onClick={retryLoadProfile} className="retry-button">
+                <button onClick={loadUserProfile} className="retry-button">
                     Retry
                 </button>
             </div>

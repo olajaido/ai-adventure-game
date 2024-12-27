@@ -204,30 +204,22 @@ function Inventory() {
             const requestConfig = {
                 apiName: 'gameApi',
                 path: '/inventory',
-                options: {
-                    headers: {
-                        Authorization: `Bearer ${idToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
+                options: {}
             };
 
-            const response = await get(requestConfig);
+            const { body } = await get(requestConfig);
             
-            if (!response || !response.body) {
-                throw new Error('Invalid response from API');
+            let data = body;
+            if (typeof body === 'string') {
+                data = JSON.parse(body);
             }
-
-            const data = typeof response.body === 'string' 
-                ? JSON.parse(response.body) 
-                : response.body;
 
             // Handle different response formats
             const items = Array.isArray(data.items) ? data.items :
                          Array.isArray(data.inventory) ? data.inventory :
                          Array.isArray(data) ? data : [];
 
-            // Validate and transform items if needed
+            // Validate and transform items
             const validatedItems = items.map(item => {
                 if (typeof item === 'string') {
                     return {
@@ -263,11 +255,6 @@ function Inventory() {
         loadInventory();
     }, [loadInventory]);
 
-    const retryLoadInventory = () => {
-        setError(null);
-        loadInventory();
-    };
-
     if (loading) {
         return <div className="loading">Loading inventory...</div>;
     }
@@ -277,8 +264,7 @@ function Inventory() {
             <div className="error-container">
                 <h2>An Error Occurred</h2>
                 <p>Unable to load inventory. Please try again.</p>
-                <pre>{JSON.stringify(error, null, 2)}</pre>
-                <button onClick={retryLoadInventory} className="retry-button">
+                <button onClick={loadInventory} className="retry-button">
                     Retry
                 </button>
             </div>
