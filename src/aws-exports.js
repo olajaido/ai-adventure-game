@@ -45,8 +45,9 @@ const awsExports = {
     API: {
         endpoints: [
             {
-                name: "gameApi",
-                endpoint: "https://hj10g1g5mk.execute-api.eu-west-2.amazonaws.com/dev"
+                name: 'gameApi',
+                endpoint: 'https://hj10g1g5mk.execute-api.eu-west-2.amazonaws.com/dev',
+                region: 'eu-west-2'
             }
         ]
     }

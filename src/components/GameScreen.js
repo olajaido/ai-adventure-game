@@ -205,21 +205,24 @@ function GameScreen() {
 
     const parseResponse = useCallback((response) => {
         try {
-            console.log('Parsing Response:', response);
+            console.log('Raw Response:', response);
             
+            // Handle different response structures
             if (typeof response === 'string') {
                 return JSON.parse(response);
             }
             
+            // Check for body in response
             if (response.body) {
-                const parsedBody = typeof response.body === 'string' 
+                const body = typeof response.body === 'string' 
                     ? JSON.parse(response.body)
                     : response.body;
                 
-                console.log('Parsed Body:', parsedBody);
-                return parsedBody;
+                console.log('Parsed Body:', body);
+                return body;
             }
             
+            // If response is already an object
             return response;
         } catch (error) {
             console.error('Response parsing error:', error);
@@ -245,24 +248,14 @@ function GameScreen() {
 
             console.log('Detailed Request Config:', JSON.stringify(requestConfig, null, 2));
 
-            try {
-                const response = method === 'GET' 
-                    ? await get(requestConfig)
-                    : await post(requestConfig);
+            const response = method === 'GET' 
+                ? await get(requestConfig)
+                : await post(requestConfig);
 
-                console.log('Detailed API Response:', JSON.stringify(response, null, 2));
-                return response;
-            } catch (apiError) {
-                console.error('Detailed API Error:', {
-                    message: apiError.message,
-                    name: apiError.name,
-                    stack: apiError.stack,
-                    config: requestConfig
-                });
-                throw apiError;
-            }
+            console.log('Detailed API Response:', JSON.stringify(response, null, 2));
+            return response;
         } catch (error) {
-            console.error('Authentication or API Call Error:', {
+            console.error('API Call Error:', {
                 message: error.message,
                 name: error.name,
                 stack: error.stack

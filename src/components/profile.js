@@ -306,21 +306,24 @@ function Profile({ signOut: externalSignOut }) {
 
     const parseResponse = useCallback((response) => {
         try {
-            console.log('Parsing Response:', response);
+            console.log('Raw Response:', response);
             
+            // Handle different response structures
             if (typeof response === 'string') {
                 return JSON.parse(response);
             }
             
+            // Check for body in response
             if (response.body) {
-                const parsedBody = typeof response.body === 'string' 
+                const body = typeof response.body === 'string' 
                     ? JSON.parse(response.body)
                     : response.body;
                 
-                console.log('Parsed Body:', parsedBody);
-                return parsedBody;
+                console.log('Parsed Body:', body);
+                return body;
             }
             
+            // If response is already an object
             return response;
         } catch (error) {
             console.error('Response parsing error:', error);

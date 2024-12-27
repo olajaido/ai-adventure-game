@@ -89,7 +89,20 @@ import Inventory from './components/Inventory';
 import Profile from './components/Profile'; 
 import './styles/App.css';  
 
-Amplify.configure(awsExports);
+// Configure Amplify with more explicit configuration
+Amplify.configure({
+    ...awsExports,
+    Auth: awsExports.Auth,
+    API: {
+        REST: awsExports.API.endpoints.reduce((acc, endpoint) => {
+            acc[endpoint.name] = {
+                endpoint: endpoint.endpoint,
+                region: endpoint.region
+            };
+            return acc;
+        }, {})
+    }
+});
 
 function App() {   
     return (     
