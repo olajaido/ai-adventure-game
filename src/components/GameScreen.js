@@ -977,7 +977,7 @@ function GameScreen() {
             setError(null);
 
             const data = await makeApiCall({
-                current_scene: data?.scene?.scene_description || 'start',
+                current_scene: currentGameState.scene_description,
                 player_choice: choice
             });
 
