@@ -471,215 +471,9 @@
 
 // export default Profile;
 
-// import React, { useState, useEffect, useCallback } from 'react';
-// import { getCurrentUser, signOut as amplifySignOut } from '@aws-amplify/auth';
-// import { get } from 'aws-amplify/api';
-// import '../styles/Profile.css';
-
-// function Profile({ signOut: externalSignOut }) {
-//     const [user, setUser] = useState(null);
-//     const [stats, setStats] = useState(null);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState(null);
-
-//     const loadUserProfile = useCallback(async () => {
-//         try {
-//             setLoading(true);
-//             setError(null);
-
-//             const currentUser = await getCurrentUser();
-            
-//             if (!currentUser) {
-//                 throw new Error('No user found');
-//             }
-
-//             const requestConfig = {
-//                 apiName: 'gameApi',
-//                 path: `/user-stats/${currentUser.userId}`,
-//                 options: {}
-//             };
-
-//             const { body } = await get(requestConfig);
-            
-//             let userStats = body;
-//             if (typeof body === 'string') {
-//                 userStats = JSON.parse(body);
-//             }
-
-//             setUser({
-//                 id: currentUser.userId,
-//                 username: currentUser.username,
-//                 attributes: {
-//                     email: currentUser.signInDetails?.email
-//                 }
-//             });
-
-//             // Validate and set stats with defaults
-//             setStats({
-//                 gamesPlayed: userStats.gamesPlayed || 0,
-//                 highestLevel: userStats.highestLevel || 1,
-//                 itemsCollected: userStats.itemsCollected || 0,
-//                 achievements: Array.isArray(userStats.achievements) 
-//                     ? userStats.achievements.map(achievement => ({
-//                         name: achievement.name || 'Unnamed Achievement',
-//                         description: achievement.description || 'No description available',
-//                         icon: achievement.icon || '🏆',
-//                         dateEarned: achievement.dateEarned || null,
-//                         progress: achievement.progress || 100
-//                     }))
-//                     : [],
-//                 experience: userStats.experience || 0,
-//                 level: userStats.level || 1,
-//                 rank: userStats.rank || 'Novice Adventurer',
-//                 playTime: userStats.playTime || 0,
-//                 lastPlayed: userStats.lastPlayed || null
-//             });
-//         } catch (error) {
-//             console.error('Profile Load Error:', {
-//                 message: error.message,
-//                 name: error.name,
-//                 code: error.code
-//             });
-//             setError(error);
-//         } finally {
-//             setLoading(false);
-//         }
-//     }, []);
-
-//     useEffect(() => {
-//         loadUserProfile();
-//     }, [loadUserProfile]);
-
-//     const handleSignOut = async () => {
-//         try {
-//             await amplifySignOut();
-//             if (externalSignOut) {
-//                 await externalSignOut();
-//             }
-//         } catch (error) {
-//             console.error('Sign Out Error:', error);
-//         }
-//     };
-
-//     if (loading) {
-//         return <div className="loading">Loading profile...</div>;
-//     }
-
-//     if (error) {
-//         return (
-//             <div className="error-container">
-//                 <h2>An Error Occurred</h2>
-//                 <p>Unable to load profile. Please try again.</p>
-//                 <button onClick={loadUserProfile} className="retry-button">
-//                     Retry
-//                 </button>
-//             </div>
-//         );
-//     }
-
-//     return (
-//         <div className="profile">
-//             <div className="profile-header">
-//                 <h2>Adventurer Profile</h2>
-//                 <button onClick={handleSignOut} className="sign-out-button">
-//                     Sign Out
-//                 </button>
-//             </div>
-            
-//             <div className="profile-content">
-//                 <div className="profile-section">
-//                     <h3>Player Info</h3>
-//                     <div className="player-info">
-//                         <p>Username: {user?.username || 'Unknown'}</p>
-//                         <p>Email: {user?.attributes?.email || 'No email'}</p>
-//                         <p>Rank: {stats?.rank || 'Novice Adventurer'}</p>
-//                         <p>Level: {stats?.level || 1}</p>
-//                         <p>Experience: {stats?.experience || 0} XP</p>
-//                     </div>
-//                 </div>
-
-//                 <div className="profile-section">
-//                     <h3>Game Statistics</h3>
-//                     <div className="stats-grid">
-//                         <div className="stat-item">
-//                             <span className="stat-label">Games Played</span>
-//                             <span className="stat-value">{stats?.gamesPlayed || 0}</span>
-//                         </div>
-//                         <div className="stat-item">
-//                             <span className="stat-label">Highest Level</span>
-//                             <span className="stat-value">{stats?.highestLevel || 1}</span>
-//                         </div>
-//                         <div className="stat-item">
-//                             <span className="stat-label">Items Collected</span>
-//                             <span className="stat-value">{stats?.itemsCollected || 0}</span>
-//                         </div>
-//                         <div className="stat-item">
-//                             <span className="stat-label">Play Time</span>
-//                             <span className="stat-value">
-//                                 {stats?.playTime 
-//                                     ? `${Math.floor(stats.playTime / 60)}h ${stats.playTime % 60}m`
-//                                     : '0h 0m'
-//                                 }
-//                             </span>
-//                         </div>
-//                         {stats?.lastPlayed && (
-//                             <div className="stat-item">
-//                                 <span className="stat-label">Last Played</span>
-//                                 <span className="stat-value">
-//                                     {new Date(stats.lastPlayed).toLocaleDateString()}
-//                                 </span>
-//                             </div>
-//                         )}
-//                     </div>
-//                 </div>
-
-//                 {stats?.achievements?.length > 0 && (
-//                     <div className="profile-section">
-//                         <h3>Achievements</h3>
-//                         <div className="achievements-list">
-//                             {stats.achievements.map((achievement, index) => (
-//                                 <div key={index} className="achievement-item">
-//                                     <span className="achievement-icon">
-//                                         {achievement.icon}
-//                                     </span>
-//                                     <div className="achievement-info">
-//                                         <span className="achievement-name">
-//                                             {achievement.name}
-//                                         </span>
-//                                         <span className="achievement-description">
-//                                             {achievement.description}
-//                                         </span>
-//                                         {achievement.dateEarned && (
-//                                             <span className="achievement-date">
-//                                                 Earned: {new Date(achievement.dateEarned).toLocaleDateString()}
-//                                             </span>
-//                                         )}
-//                                         {achievement.progress < 100 && (
-//                                             <div className="achievement-progress">
-//                                                 <div 
-//                                                     className="progress-bar"
-//                                                     style={{ width: `${achievement.progress}%` }}
-//                                                 />
-//                                                 <span className="progress-text">
-//                                                     {achievement.progress}%
-//                                                 </span>
-//                                             </div>
-//                                         )}
-//                                     </div>
-//                                 </div>
-//                             ))}
-//                         </div>
-//                     </div>
-//                 )}
-//             </div>
-//         </div>
-//     );
-// }
-
-// export default Profile;
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Auth, API } from 'aws-amplify';
+import { getCurrentUser, signOut as amplifySignOut } from '@aws-amplify/auth';
+import { get } from 'aws-amplify/api';
 import '../styles/Profile.css';
 
 function Profile({ signOut: externalSignOut }) {
@@ -693,30 +487,30 @@ function Profile({ signOut: externalSignOut }) {
             setLoading(true);
             setError(null);
 
-            const currentUser = await Auth.currentAuthenticatedUser();
+            const currentUser = await getCurrentUser();
             
             if (!currentUser) {
                 throw new Error('No user found');
             }
 
             const requestConfig = {
-                headers: {
-                    Authorization: `Bearer ${currentUser.signInUserSession.idToken.jwtToken}`
-                }
+                apiName: 'gameApi',
+                path: `/user-stats/${currentUser.userId}`,
+                options: {}
             };
 
-            const response = await API.get('gameApi', `/user-stats/${currentUser.username}`, requestConfig);
+            const { body } = await get(requestConfig);
             
-            let userStats = response;
-            if (typeof response === 'string') {
-                userStats = JSON.parse(response);
+            let userStats = body;
+            if (typeof body === 'string') {
+                userStats = JSON.parse(body);
             }
 
             setUser({
-                id: currentUser.username,
+                id: currentUser.userId,
                 username: currentUser.username,
                 attributes: {
-                    email: currentUser.attributes.email
+                    email: currentUser.signInDetails?.email
                 }
             });
 
@@ -758,7 +552,7 @@ function Profile({ signOut: externalSignOut }) {
 
     const handleSignOut = async () => {
         try {
-            await Auth.signOut();
+            await amplifySignOut();
             if (externalSignOut) {
                 await externalSignOut();
             }
@@ -883,3 +677,4 @@ function Profile({ signOut: externalSignOut }) {
 }
 
 export default Profile;
+

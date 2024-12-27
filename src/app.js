@@ -1,82 +1,82 @@
-// import React from 'react';
-// import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
-// import { Amplify } from 'aws-amplify';
-// import { withAuthenticator } from '@aws-amplify/ui-react';
-// import '@aws-amplify/ui-react/styles.css';
-// import awsExports from './aws-exports';
-// import GameScreen from './components/GameScreen';
-// import Inventory from './components/Inventory';
-// import Profile from './components/Profile';
-// import './styles/App.css';
+// // import React from 'react';
+// // import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+// // import { Amplify } from 'aws-amplify';
+// // import { withAuthenticator } from '@aws-amplify/ui-react';
+// // import '@aws-amplify/ui-react/styles.css';
+// // import awsExports from './aws-exports';
+// // import GameScreen from './components/GameScreen';
+// // import Inventory from './components/Inventory';
+// // import Profile from './components/Profile';
+// // import './styles/App.css';
 
-// Amplify.configure(awsExports);
+// // Amplify.configure(awsExports);
 
-// function App() {
-//     return (
-//         <Router>
-//             <div className="app">
-//                 <nav className="nav-bar">
-//                     <h1>AI Adventure Game</h1>
-//                     <div className="nav-links">
-//                         <Link to="/" className="nav-link">Game</Link>
-//                         <Link to="/inventory" className="nav-link">Inventory</Link>
-//                         <Link to="/profile" className="nav-link">Profile</Link>
-//                     </div>
-//                 </nav>
-//                 <Routes>
-//                     <Route path="/" element={<GameScreen />} />
-//                     <Route path="/inventory" element={<Inventory />} />
-//                     <Route path="/profile" element={<Profile />} />
-//                 </Routes>
-//             </div>
-//         </Router>
-//     );
-// }
+// // function App() {
+// //     return (
+// //         <Router>
+// //             <div className="app">
+// //                 <nav className="nav-bar">
+// //                     <h1>AI Adventure Game</h1>
+// //                     <div className="nav-links">
+// //                         <Link to="/" className="nav-link">Game</Link>
+// //                         <Link to="/inventory" className="nav-link">Inventory</Link>
+// //                         <Link to="/profile" className="nav-link">Profile</Link>
+// //                     </div>
+// //                 </nav>
+// //                 <Routes>
+// //                     <Route path="/" element={<GameScreen />} />
+// //                     <Route path="/inventory" element={<Inventory />} />
+// //                     <Route path="/profile" element={<Profile />} />
+// //                 </Routes>
+// //             </div>
+// //         </Router>
+// //     );
+// // }
 
-// export default withAuthenticator(App);
+// // export default withAuthenticator(App);
 
-// import React from 'react';
-// import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
-// import { Amplify } from 'aws-amplify';
-// import { Authenticator } from '@aws-amplify/ui-react';
-// import '@aws-amplify/ui-react/styles.css';
-// import awsExports from './aws-exports';
-// import GameScreen from './components/GameScreen';
-// import Inventory from './components/Inventory';
-// import Profile from './components/Profile';
-// import './styles/App.css';
+// // import React from 'react';
+// // import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+// // import { Amplify } from 'aws-amplify';
+// // import { Authenticator } from '@aws-amplify/ui-react';
+// // import '@aws-amplify/ui-react/styles.css';
+// // import awsExports from './aws-exports';
+// // import GameScreen from './components/GameScreen';
+// // import Inventory from './components/Inventory';
+// // import Profile from './components/Profile';
+// // import './styles/App.css';
 
-// Amplify.configure(awsExports);
+// // Amplify.configure(awsExports);
 
-// function App() {
-//   return (
-//     <Authenticator.Provider>
-//       <Authenticator>
-//         {({ signOut, user }) => (
-//           <Router>
-//             <div className="app">
-//               <nav className="nav-bar">
-//                 <h1>AI Adventure Game</h1>
-//                 <div className="nav-links">
-//                   <Link to="/" className="nav-link">Game</Link>
-//                   <Link to="/inventory" className="nav-link">Inventory</Link>
-//                   <Link to="/profile" className="nav-link">Profile</Link>
-//                 </div>
-//               </nav>
-//               <Routes>
-//                 <Route path="/" element={<GameScreen />} />
-//                 <Route path="/inventory" element={<Inventory />} />
-//                 <Route path="/profile" element={<Profile signOut={signOut} />} />
-//               </Routes>
-//             </div>
-//           </Router>
-//         )}
-//       </Authenticator>
-//     </Authenticator.Provider>
-//   );
-// }
+// // function App() {
+// //   return (
+// //     <Authenticator.Provider>
+// //       <Authenticator>
+// //         {({ signOut, user }) => (
+// //           <Router>
+// //             <div className="app">
+// //               <nav className="nav-bar">
+// //                 <h1>AI Adventure Game</h1>
+// //                 <div className="nav-links">
+// //                   <Link to="/" className="nav-link">Game</Link>
+// //                   <Link to="/inventory" className="nav-link">Inventory</Link>
+// //                   <Link to="/profile" className="nav-link">Profile</Link>
+// //                 </div>
+// //               </nav>
+// //               <Routes>
+// //                 <Route path="/" element={<GameScreen />} />
+// //                 <Route path="/inventory" element={<Inventory />} />
+// //                 <Route path="/profile" element={<Profile signOut={signOut} />} />
+// //               </Routes>
+// //             </div>
+// //           </Router>
+// //         )}
+// //       </Authenticator>
+// //     </Authenticator.Provider>
+// //   );
+// // }
 
-// export default App;
+// // export default App;
 
 // import React from 'react'; 
 // import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom'; 
@@ -134,46 +134,6 @@
 
 // export default App;
 
-// src/App.js
-// import React from 'react';
-// import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
-// import { Authenticator } from '@aws-amplify/ui-react';
-// import '@aws-amplify/ui-react/styles.css';
-// import GameScreen from './components/GameScreen';
-// import Inventory from './components/Inventory';
-// import Profile from './components/Profile';
-// import './styles/App.css';
-
-// function App() {
-//   return (
-//     <Authenticator.Provider>
-//       <Authenticator>
-//         {({ signOut, user }) => (
-//           <Router>
-//             <div className="app">
-//               <nav className="nav-bar">
-//                 <h1>AI Adventure Game</h1>
-//                 <div className="nav-links">
-//                   <Link to="/" className="nav-link">Game</Link>
-//                   <Link to="/inventory" className="nav-link">Inventory</Link>
-//                   <Link to="/profile" className="nav-link">Profile</Link>
-//                 </div>
-//               </nav>
-              
-//               <Routes>
-//                 <Route path="/" element={<GameScreen />} />
-//                 <Route path="/inventory" element={<Inventory />} />
-//                 <Route path="/profile" element={<Profile signOut={signOut} user={user} />} />
-//               </Routes>
-//             </div>
-//           </Router>
-//         )}
-//       </Authenticator>
-//     </Authenticator.Provider>
-//   );
-// }
-
-// export default App;
 
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
@@ -214,3 +174,4 @@ function App() {
 }
 
 export default App;
+
