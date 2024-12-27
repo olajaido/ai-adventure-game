@@ -179,9 +179,142 @@
 // }  
 
 // export default Inventory;
+// import React, { useState, useEffect, useCallback } from 'react';
+// import { get } from 'aws-amplify/api';
+// import { fetchAuthSession } from '@aws-amplify/auth';
+// import '../styles/Inventory.css';
+
+// function Inventory() {
+//     const [inventory, setInventory] = useState([]);
+//     const [loading, setLoading] = useState(true);
+//     const [error, setError] = useState(null);
+
+//     const loadInventory = useCallback(async () => {
+//         try {
+//             setLoading(true);
+//             setError(null);
+            
+//             const session = await fetchAuthSession();
+//             const idToken = session.tokens?.idToken?.toString();
+            
+//             if (!idToken) {
+//                 throw new Error('No authentication token available');
+//             }
+
+//             const requestConfig = {
+//                 apiName: 'gameApi',
+//                 path: '/inventory',
+//                 options: {}
+//             };
+
+//             const { body } = await get(requestConfig);
+            
+//             let data = body;
+//             if (typeof body === 'string') {
+//                 data = JSON.parse(body);
+//             }
+
+//             // Handle different response formats
+//             const items = Array.isArray(data.items) ? data.items :
+//                          Array.isArray(data.inventory) ? data.inventory :
+//                          Array.isArray(data) ? data : [];
+
+//             // Validate and transform items
+//             const validatedItems = items.map(item => {
+//                 if (typeof item === 'string') {
+//                     return {
+//                         name: item,
+//                         description: 'No description available',
+//                         icon: '📦'
+//                     };
+//                 }
+//                 return {
+//                     name: item.name || 'Unnamed Item',
+//                     description: item.description || 'No description available',
+//                     icon: item.icon || '📦',
+//                     quantity: item.quantity || 1,
+//                     type: item.type || 'misc',
+//                     properties: item.properties || {}
+//                 };
+//             });
+
+//             setInventory(validatedItems);
+//         } catch (error) {
+//             console.error('Inventory Load Error:', {
+//                 message: error.message,
+//                 name: error.name,
+//                 code: error.code
+//             });
+//             setError(error);
+//         } finally {
+//             setLoading(false);
+//         }
+//     }, []);
+
+//     useEffect(() => {
+//         loadInventory();
+//     }, [loadInventory]);
+
+//     if (loading) {
+//         return <div className="loading">Loading inventory...</div>;
+//     }
+
+//     if (error) {
+//         return (
+//             <div className="error-container">
+//                 <h2>An Error Occurred</h2>
+//                 <p>Unable to load inventory. Please try again.</p>
+//                 <button onClick={loadInventory} className="retry-button">
+//                     Retry
+//                 </button>
+//             </div>
+//         );
+//     }
+
+//     return (
+//         <div className="inventory">
+//             <h2>Your Inventory</h2>
+            
+//             {inventory.length === 0 ? (
+//                 <div className="empty-inventory">
+//                     Your inventory is empty. Explore the world to find items!
+//                 </div>
+//             ) : (
+//                 <div className="inventory-grid">
+//                     {inventory.map((item, index) => (
+//                         <div key={index} className="inventory-item">
+//                             <div className="item-header">
+//                                 <div className="item-icon">{item.icon}</div>
+//                                 <div className="item-name">{item.name}</div>
+//                                 {item.quantity > 1 && (
+//                                     <div className="item-quantity">x{item.quantity}</div>
+//                                 )}
+//                             </div>
+//                             <div className="item-description">{item.description}</div>
+//                             {item.type && (
+//                                 <div className="item-type">Type: {item.type}</div>
+//                             )}
+//                             {Object.keys(item.properties || {}).length > 0 && (
+//                                 <div className="item-properties">
+//                                     {Object.entries(item.properties).map(([key, value]) => (
+//                                         <div key={key} className="item-property">
+//                                             {key}: {value}
+//                                         </div>
+//                                     ))}
+//                                 </div>
+//                             )}
+//                         </div>
+//                     ))}
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+// export default Inventory;
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { get } from 'aws-amplify/api';
-import { fetchAuthSession } from '@aws-amplify/auth';
+import { API, Auth } from 'aws-amplify';
 import '../styles/Inventory.css';
 
 function Inventory() {
@@ -194,24 +327,24 @@ function Inventory() {
             setLoading(true);
             setError(null);
             
-            const session = await fetchAuthSession();
-            const idToken = session.tokens?.idToken?.toString();
+            const session = await Auth.currentSession();
+            const idToken = session.getIdToken().getJwtToken();
             
             if (!idToken) {
                 throw new Error('No authentication token available');
             }
 
             const requestConfig = {
-                apiName: 'gameApi',
-                path: '/inventory',
-                options: {}
+                headers: {
+                    Authorization: `Bearer ${idToken}`
+                }
             };
 
-            const { body } = await get(requestConfig);
+            const response = await API.get('gameApi', '/inventory', requestConfig);
             
-            let data = body;
-            if (typeof body === 'string') {
-                data = JSON.parse(body);
+            let data = response;
+            if (typeof response === 'string') {
+                data = JSON.parse(response);
             }
 
             // Handle different response formats
