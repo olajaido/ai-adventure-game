@@ -59,7 +59,7 @@ function Inventory() {
     const [inventory, setInventory] = useState([]);     
     const [loading, setLoading] = useState(true);      
 
-    const parseResponse = (response) => {
+    const parseResponse = useCallback((response) => {
         try {
             if (typeof response === 'string') {
                 return JSON.parse(response);
@@ -76,7 +76,7 @@ function Inventory() {
             console.error('Response parsing error:', error);
             return response;
         }
-    };
+    }, []);
 
     const loadInventory = useCallback(async () => {         
         try {             
@@ -103,7 +103,7 @@ function Inventory() {
             console.error('Error loading inventory:', error);             
             setLoading(false);         
         }     
-    }, []);
+    }, [parseResponse]);
 
     useEffect(() => {         
         loadInventory();     

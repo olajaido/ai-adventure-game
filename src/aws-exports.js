@@ -43,9 +43,12 @@ const awsExports = {
         }
     },
     API: {
-        gameApi: {
-            endpoint: "https://hj10g1g5mk.execute-api.eu-west-2.amazonaws.com/dev"
-        }
+        endpoints: [
+            {
+                name: "gameApi",
+                endpoint: "https://hj10g1g5mk.execute-api.eu-west-2.amazonaws.com/dev"
+            }
+        ]
     }
 };
 

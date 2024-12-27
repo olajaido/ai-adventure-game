@@ -203,7 +203,6 @@ function GameScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Wrap parseResponse in useCallback
     const parseResponse = useCallback((response) => {
         try {
             if (typeof response === 'string') {
@@ -239,15 +238,16 @@ function GameScreen() {
                 }
             };
 
-            console.log('Request Config:', requestConfig);
+            console.log('Full Request Config:', requestConfig);
 
             const response = method === 'GET' 
                 ? await get(requestConfig)
                 : await post(requestConfig);
 
+            console.log('Full API Response:', response);
             return response;
         } catch (error) {
-            console.error('API Call Error:', {
+            console.error('Comprehensive API Call Error:', {
                 message: error.message,
                 name: error.name,
                 stack: error.stack

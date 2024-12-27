@@ -303,7 +303,7 @@ function Profile({ signOut: externalSignOut }) {
     const [stats, setStats] = useState(null);     
     const [loading, setLoading] = useState(true);      
 
-    const parseResponse = (response) => {
+    const parseResponse = useCallback((response) => {
         try {
             if (typeof response === 'string') {
                 return JSON.parse(response);
@@ -320,7 +320,7 @@ function Profile({ signOut: externalSignOut }) {
             console.error('Response parsing error:', error);
             return response;
         }
-    };
+    }, []);
 
     const loadUserProfile = useCallback(async () => {         
         try {             
@@ -354,7 +354,7 @@ function Profile({ signOut: externalSignOut }) {
             console.error('Error loading profile:', error);             
             setLoading(false);         
         }     
-    }, []);
+    }, [parseResponse]);
 
     const handleSignOut = async () => {
         try {
