@@ -419,31 +419,43 @@ function GameScreen() {
     const [error, setError] = useState(null);
 
     const makeApiCall = useCallback(async (body) => {
+        let authSession;
         try {
-            const session = await fetchAuthSession();
-            const idToken = session.tokens?.idToken?.toString();
-            
-            if (!idToken) {
-                throw new Error('No authentication token available');
+            // First, ensure we have a valid auth session
+            authSession = await fetchAuthSession();
+            if (!authSession?.tokens?.idToken) {
+                throw new Error('Authentication required');
             }
 
-            const requestConfig = {
+            const response = await post({
                 apiName: 'gameApi',
                 path: '/generate-story',
                 options: {
+                    headers: {
+                        Authorization: `Bearer ${authSession.tokens.idToken.toString()}`
+                    },
                     body: JSON.stringify(body)
                 }
-            };
+            });
 
-            const { body: responseBody } = await post(requestConfig);
-            
-            return responseBody;
+            // Check if we have a valid response
+            if (!response?.body) {
+                throw new Error('Invalid response from server');
+            }
+
+            return response.body;
         } catch (error) {
-            console.error('API Call Error:', {
+            console.error('API Error:', {
                 message: error.message,
                 name: error.name,
-                code: error.code
+                status: error.statusCode
             });
+            
+            // Handle specific error cases
+            if (error.statusCode === 401 || error.message.includes('Unauthorized')) {
+                throw new Error('Session expired. Please sign in again.');
+            }
+            
             throw error;
         }
     }, []);
@@ -452,29 +464,32 @@ function GameScreen() {
         try {
             setLoading(true);
             setError(null);
-            
-            const response = await makeApiCall({
+
+            const data = await makeApiCall({
                 current_scene: 'start',
                 player_choice: null
             });
 
-            let data = response;
-            if (typeof response === 'string') {
-                data = JSON.parse(response);
+            // Handle string response
+            const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+
+            // Validate the data before setting state
+            if (!parsedData) {
+                throw new Error('Invalid game data received');
             }
 
             const validatedGameState = {
-                scene_description: 
-                    data.scene_description || 
-                    data.currentScene || 
-                    data.scene || 
-                    'Unable to generate scene',
-                choices: Array.isArray(data.choices) ? data.choices :
-                        Array.isArray(data.options) ? data.options : [],
+                scene_description: parsedData.scene_description || 
+                                 parsedData.currentScene || 
+                                 parsedData.scene || 
+                                 'Start your adventure...',
+                choices: Array.isArray(parsedData.choices) ? parsedData.choices :
+                        Array.isArray(parsedData.options) ? parsedData.options : 
+                        [{ text: 'Begin Adventure', consequences: {} }],
                 environment: {
-                    items: Array.isArray(data.environment?.items) ? data.environment.items : [],
-                    npcs: Array.isArray(data.environment?.npcs) ? data.environment.npcs : [],
-                    events: Array.isArray(data.environment?.events) ? data.environment.events : []
+                    items: Array.isArray(parsedData.environment?.items) ? parsedData.environment.items : [],
+                    npcs: Array.isArray(parsedData.environment?.npcs) ? parsedData.environment.npcs : [],
+                    events: Array.isArray(parsedData.environment?.events) ? parsedData.environment.events : []
                 }
             };
 
@@ -482,9 +497,10 @@ function GameScreen() {
         } catch (error) {
             console.error('Scene Generation Error:', error);
             setError(error);
+            // Keep the current scene but add a retry option
             setGameState(prev => ({
                 ...prev,
-                scene_description: 'An error occurred. Please try again.',
+                scene_description: error.message || 'An error occurred. Please try again.',
                 choices: [{ text: 'Retry', consequences: {} }]
             }));
         } finally {
@@ -492,33 +508,38 @@ function GameScreen() {
         }
     }, [makeApiCall]);
 
+    useEffect(() => {
+        generateNewScene();
+    }, [generateNewScene]);
+
     const makeChoice = useCallback(async (choice) => {
         try {
             setLoading(true);
             setError(null);
-            
-            const response = await makeApiCall({
+
+            const data = await makeApiCall({
                 current_scene: gameState.scene_description,
                 player_choice: choice
             });
 
-            let data = response;
-            if (typeof response === 'string') {
-                data = JSON.parse(response);
+            const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+
+            if (!parsedData) {
+                throw new Error('Invalid game data received');
             }
 
             const validatedGameState = {
-                scene_description: 
-                    data.scene_description || 
-                    data.currentScene || 
-                    data.scene || 
-                    'Unable to generate scene',
-                choices: Array.isArray(data.choices) ? data.choices :
-                        Array.isArray(data.options) ? data.options : [],
+                scene_description: parsedData.scene_description || 
+                                 parsedData.currentScene || 
+                                 parsedData.scene || 
+                                 'Continue your adventure...',
+                choices: Array.isArray(parsedData.choices) ? parsedData.choices :
+                        Array.isArray(parsedData.options) ? parsedData.options : 
+                        [{ text: 'Continue', consequences: {} }],
                 environment: {
-                    items: Array.isArray(data.environment?.items) ? data.environment.items : [],
-                    npcs: Array.isArray(data.environment?.npcs) ? data.environment.npcs : [],
-                    events: Array.isArray(data.environment?.events) ? data.environment.events : []
+                    items: Array.isArray(parsedData.environment?.items) ? parsedData.environment.items : [],
+                    npcs: Array.isArray(parsedData.environment?.npcs) ? parsedData.environment.npcs : [],
+                    events: Array.isArray(parsedData.environment?.events) ? parsedData.environment.events : []
                 }
             };
 
@@ -526,6 +547,7 @@ function GameScreen() {
         } catch (error) {
             console.error('Choice Processing Error:', error);
             setError(error);
+            // Keep the current scene but add a retry option
             setGameState(prev => ({
                 ...prev,
                 choices: [{ text: 'Retry', consequences: {} }]
@@ -535,10 +557,6 @@ function GameScreen() {
         }
     }, [makeApiCall, gameState.scene_description]);
 
-    useEffect(() => {
-        generateNewScene();
-    }, [generateNewScene]);
-
     if (loading) {
         return <div className="loading">Loading your adventure...</div>;
     }
@@ -547,7 +565,7 @@ function GameScreen() {
         return (
             <div className="error-container">
                 <h2>An Error Occurred</h2>
-                <p>Unable to load the game. Please try again later.</p>
+                <p>{error.message || 'Unable to load the game. Please try again later.'}</p>
                 <button onClick={generateNewScene} className="retry-button">
                     Retry
                 </button>
