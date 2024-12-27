@@ -89,7 +89,16 @@ import Inventory from './components/Inventory';
 import Profile from './components/Profile'; 
 import './styles/App.css';  
 
-Amplify.configure(awsExports);  
+// Configure Amplify
+Amplify.configure({
+  ...awsExports,
+  Auth: {
+    ...awsExports.Auth
+  },
+  API: {
+    ...awsExports.API
+  }
+});
 
 function App() {   
     return (     

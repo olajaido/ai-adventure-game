@@ -186,12 +186,11 @@
 // export default GameScreen;
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { generateClient } from 'aws-amplify/api';
+import { get, post } from 'aws-amplify/api';
 import { fetchAuthSession } from '@aws-amplify/auth';
 import '../styles/GameScreen.css';
 
 function GameScreen() {
-    const client = generateClient();
     const [gameState, setGameState] = useState({
         scene_description: "Beginning your adventure...",
         choices: [],
@@ -204,13 +203,29 @@ function GameScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const parseResponse = (response) => {
+        try {
+            if (typeof response === 'string') {
+                return JSON.parse(response);
+            }
+            
+            if (response.body) {
+                return typeof response.body === 'string' 
+                    ? JSON.parse(response.body)
+                    : response.body;
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('Response parsing error:', error);
+            return response;
+        }
+    };
+
     const makeApiCall = useCallback(async (method, path, body = null) => {
         try {
-            console.log('Attempting API call:', { method, path, body });
-            
             const session = await fetchAuthSession();
-            console.log('Session retrieved:', session);
-
+            
             const requestConfig = {
                 apiName: 'gameApi',
                 path: path,
@@ -223,34 +238,22 @@ function GameScreen() {
                 }
             };
 
-            console.log('Full Request Config:', JSON.stringify(requestConfig, null, 2));
+            console.log('Request Config:', requestConfig);
 
-            let response;
-            try {
-                response = method === 'GET' 
-                    ? await client.get(requestConfig) 
-                    : await client.post(requestConfig);
-            } catch (apiError) {
-                console.error('Detailed API Error:', {
-                    message: apiError.message,
-                    name: apiError.name,
-                    stack: apiError.stack,
-                    config: requestConfig
-                });
-                throw apiError;
-            }
+            const response = method === 'GET' 
+                ? await get(requestConfig)
+                : await post(requestConfig);
 
-            console.log('Full Response:', response);
             return response;
         } catch (error) {
-            console.error('Comprehensive API Call Error:', {
+            console.error('API Call Error:', {
                 message: error.message,
                 name: error.name,
                 stack: error.stack
             });
             throw error;
         }
-    }, [client]);
+    }, []);
 
     const generateNewScene = useCallback(async () => {
         try {
@@ -260,31 +263,8 @@ function GameScreen() {
                 player_choice: null,
             });
 
-            console.log('Generate Scene Full Response:', response);
+            const data = parseResponse(response);
 
-            // Extremely flexible parsing
-            let data;
-            if (typeof response === 'string') {
-                try {
-                    data = JSON.parse(response);
-                } catch {
-                    data = response;
-                }
-            } else if (response.body) {
-                try {
-                    data = typeof response.body === 'string' 
-                        ? JSON.parse(response.body) 
-                        : response.body;
-                } catch {
-                    data = response.body;
-                }
-            } else {
-                data = response;
-            }
-
-            console.log('Parsed Scene Data:', JSON.stringify(data, null, 2));
-
-            // Validate the data structure with extensive fallbacks
             const validatedGameState = {
                 scene_description: 
                     data.scene_description || 
@@ -294,7 +274,6 @@ function GameScreen() {
                 choices: 
                     data.choices || 
                     data.options || 
-                    (typeof data === 'object' && Object.keys(data).filter(k => k.includes('choice'))) || 
                     [],
                 environment: 
                     data.environment || {
@@ -304,26 +283,19 @@ function GameScreen() {
                     }
             };
 
-            console.log('Validated Game State:', JSON.stringify(validatedGameState, null, 2));
-
             setGameState(validatedGameState);
             setLoading(false);
         } catch (error) {
-            console.error('Scene Generation Full Error:', {
-                message: error.message,
-                name: error.name,
-                stack: error.stack
-            });
-            
+            console.error('Scene Generation Error:', error);
             setGameState({
-                scene_description: 'An unexpected error occurred. Please try again.',
+                scene_description: 'An error occurred. Please try again.',
                 choices: [{ text: 'Retry', consequences: {} }],
                 environment: { items: [], npcs: [], events: [] }
             });
             setError(error);
             setLoading(false);
         }
-    }, [makeApiCall]);
+    }, [makeApiCall, parseResponse]);
 
     const makeChoice = async (choice) => {
         try {
@@ -333,25 +305,7 @@ function GameScreen() {
                 player_choice: choice,
             });
 
-            // Similar parsing logic as generateNewScene
-            let data;
-            if (typeof response === 'string') {
-                try {
-                    data = JSON.parse(response);
-                } catch {
-                    data = response;
-                }
-            } else if (response.body) {
-                try {
-                    data = typeof response.body === 'string' 
-                        ? JSON.parse(response.body) 
-                        : response.body;
-                } catch {
-                    data = response.body;
-                }
-            } else {
-                data = response;
-            }
+            const data = parseResponse(response);
 
             const validatedGameState = {
                 scene_description: 
@@ -362,7 +316,6 @@ function GameScreen() {
                 choices: 
                     data.choices || 
                     data.options || 
-                    (typeof data === 'object' && Object.keys(data).filter(k => k.includes('choice'))) || 
                     [],
                 environment: 
                     data.environment || {

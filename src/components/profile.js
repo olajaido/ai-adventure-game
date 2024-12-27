@@ -294,26 +294,52 @@
 // export default Profile;
 
 import React, { useState, useEffect, useCallback } from 'react'; 
-import { getCurrentUser, signOut } from 'aws-amplify/auth'; 
-import { generateClient } from 'aws-amplify/api'; 
+import { getCurrentUser, signOut } from '@aws-amplify/auth'; 
+import { get } from 'aws-amplify/api'; 
 import '../styles/Profile.css';  
 
 function Profile({ signOut: externalSignOut }) {     
-    const client = generateClient();
     const [user, setUser] = useState(null);     
     const [stats, setStats] = useState(null);     
     const [loading, setLoading] = useState(true);      
+
+    const parseResponse = (response) => {
+        try {
+            if (typeof response === 'string') {
+                return JSON.parse(response);
+            }
+            
+            if (response.body) {
+                return typeof response.body === 'string' 
+                    ? JSON.parse(response.body)
+                    : response.body;
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('Response parsing error:', error);
+            return response;
+        }
+    };
 
     const loadUserProfile = useCallback(async () => {         
         try {             
             const { userId, signInDetails } = await getCurrentUser();                          
             
-            // Fetch user-specific stats using userId             
-            const userStats = await client.get({
+            const requestConfig = {
                 apiName: 'gameApi', 
-                path: `/user-stats/${userId}`
-            });
-                          
+                path: `/user-stats/${userId}`,
+                options: {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            };
+
+            const userStats = await get(requestConfig);
+            
+            const parsedStats = parseResponse(userStats);
+
             setUser({                 
                 id: userId,                 
                 username: signInDetails?.loginId,                 
@@ -322,26 +348,28 @@ function Profile({ signOut: externalSignOut }) {
                 }             
             });              
 
-            setStats(userStats.data);             
+            setStats(parsedStats);             
             setLoading(false);         
         } catch (error) {             
             console.error('Error loading profile:', error);             
             setLoading(false);         
         }     
-    }, [client]);
-
-    useEffect(() => {         
-        loadUserProfile();     
-    }, [loadUserProfile]);      
+    }, []);
 
     const handleSignOut = async () => {
         try {
             await signOut();
-            externalSignOut();
+            if (externalSignOut) {
+                externalSignOut();
+            }
         } catch (error) {
             console.error('Error signing out:', error);
         }
     };
+
+    useEffect(() => {         
+        loadUserProfile();     
+    }, [loadUserProfile]);      
 
     if (loading) {         
         return <div className="loading">Loading profile...</div>;     
@@ -358,8 +386,8 @@ function Profile({ signOut: externalSignOut }) {
             <div className="profile-content">                 
                 <div className="profile-section">                     
                     <h3>Player Info</h3>                     
-                    <p>Username: {user?.username}</p>                     
-                    <p>Email: {user?.attributes?.email}</p>                     
+                    <p>Username: {user?.username || 'Unknown'}</p>                     
+                    <p>Email: {user?.attributes?.email || 'No email'}</p>                     
                     <p>User ID: {user?.id}</p>                 
                 </div>                 
                 <div className="profile-section">                     
@@ -384,9 +412,9 @@ function Profile({ signOut: externalSignOut }) {
                     <div className="achievements-list">                         
                         {stats?.achievements?.map((achievement, index) => (                             
                             <div key={index} className="achievement-item">                                 
-                                <span className="achievement-icon">{achievement.icon}</span>                                 
-                                <span className="achievement-name">{achievement.name}</span>                                 
-                                <span className="achievement-description">{achievement.description}</span>                             
+                                <span className="achievement-icon">{achievement.icon || '🏆'}</span>                                 
+                                <span className="achievement-name">{achievement.name || 'Unnamed Achievement'}</span>                                 
+                                <span className="achievement-description">{achievement.description || 'No description'}</span>                             
                             </div>                         ))}                     
                     </div>                 
                 </div>             
