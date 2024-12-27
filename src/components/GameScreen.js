@@ -646,7 +646,7 @@ function GameScreen() {
                 throw new Error('Authentication required');
             }
 
-            console.log('Making API call with body:', body);  // Debug log
+            console.log('Making API call with body:', body);
 
             const result = await post({
                 apiName: 'gameApi',
@@ -659,9 +659,8 @@ function GameScreen() {
                 }
             }).response;
 
-            console.log('Raw API Response:', result);  // Debug log
+            console.log('Raw API Response:', result);
 
-            // Parse the response if needed
             let data = result;
             if (typeof result === 'string') {
                 try {
@@ -672,9 +671,8 @@ function GameScreen() {
                 }
             }
 
-            console.log('Processed API Response:', data);  // Debug log
+            console.log('Processed API Response:', data);
             
-            // Additional validation
             if (!data || typeof data !== 'object') {
                 throw new Error('Invalid response data structure');
             }
@@ -697,14 +695,14 @@ function GameScreen() {
             setLoading(true);
             setError(null);
 
-            console.log('Generating new scene...'); // Debug log
+            console.log('Generating new scene...');
 
             const data = await makeApiCall({
                 current_scene: 'start',
                 player_choice: null
             });
 
-            console.log('New scene data received:', data); // Debug log
+            console.log('New scene data received:', data);
 
             const validatedGameState = {
                 scene_description: data?.scene_description || 
@@ -721,7 +719,7 @@ function GameScreen() {
                 }
             };
 
-            console.log('Validated new scene state:', validatedGameState); // Debug log
+            console.log('Validated new scene state:', validatedGameState);
 
             setGameState(validatedGameState);
         } catch (error) {
@@ -737,20 +735,19 @@ function GameScreen() {
         }
     }, [makeApiCall]);
 
-    const makeChoice = useCallback(async (choice) => {
+    const makeChoice = useCallback(async (choice, currentGameState) => {
         try {
-            console.log('Making choice with current state:', { choice, gameState }); // Debug log
+            console.log('Making choice with:', { choice, currentGameState });
             setLoading(true);
             setError(null);
 
             const data = await makeApiCall({
-                current_scene: gameState.scene_description,
+                current_scene: currentGameState.scene_description,
                 player_choice: choice
             });
 
-            console.log('Choice response data:', data); // Debug log
+            console.log('Choice response data:', data);
 
-            // Validate response data
             if (!data) {
                 throw new Error('No response data received');
             }
@@ -770,9 +767,8 @@ function GameScreen() {
                 }
             };
 
-            console.log('Validated choice game state:', validatedGameState); // Debug log
+            console.log('Validated choice game state:', validatedGameState);
 
-            // Only update state if we have a valid new scene
             if (validatedGameState.scene_description !== 'Continue your adventure...') {
                 setGameState(validatedGameState);
             } else {
@@ -788,11 +784,15 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall, gameState.scene_description]);
+    }, [makeApiCall]);
 
     useEffect(() => {
         generateNewScene();
     }, [generateNewScene]);
+
+    const handleChoice = useCallback((choice) => {
+        makeChoice(choice, gameState);
+    }, [makeChoice, gameState]);
 
     if (loading) {
         return <div className="loading">Loading your adventure...</div>;
@@ -820,7 +820,7 @@ function GameScreen() {
                     {gameState.choices.map((choice, index) => (
                         <button
                             key={index}
-                            onClick={() => makeChoice(typeof choice === 'string' ? choice : choice.text)}
+                            onClick={() => handleChoice(typeof choice === 'string' ? choice : choice.text)}
                             className="choice-button"
                             disabled={loading}
                         >
