@@ -856,6 +856,7 @@ import '../styles/GameScreen.css';
 function GameScreen() {
     const [gameState, setGameState] = useState({
         scene_description: "Beginning your adventure...",
+        scene_id: null,
         choices: [],
         environment: {
             items: [],
@@ -928,6 +929,7 @@ function GameScreen() {
 
         return {
             scene_description: data.scene.scene_description || 'No description available',
+            scene_id: data.scene.scene_id,
             choices: Array.isArray(data.scene.choices) ? 
                     data.scene.choices.map(choice => ({
                         text: choice.text || choice,
@@ -977,7 +979,7 @@ function GameScreen() {
             setError(null);
 
             const data = await makeApiCall({
-                current_scene: currentGameState.scene_description,
+                current_scene: currentGameState.scene_id,  // Use scene_id instead of description
                 player_choice: choice
             });
 
