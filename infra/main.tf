@@ -58,7 +58,7 @@ resource "aws_dynamodb_table" "story_cache" {
   name         = "${var.project_name}-story-cache"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "scene_id"
-  range_key    = "base_scene_id"
+  range_key    = "context_type"
 
   # Primary attributes
   attribute {
@@ -68,6 +68,10 @@ resource "aws_dynamodb_table" "story_cache" {
 
   attribute {
     name = "base_scene_id"
+    type = "S"
+  }
+  attribute {
+    name = "context_type"
     type = "S"
   }
 
@@ -84,9 +88,9 @@ resource "aws_dynamodb_table" "story_cache" {
   }
 
   global_secondary_index {
-    name            = "TimestampIndex"
+    name            = "BaseSceneIndex"
     hash_key        = "base_scene_id"
-    range_key       = "timestamp"
+    range_key       = "context_type"
     projection_type = "ALL"
   }
 

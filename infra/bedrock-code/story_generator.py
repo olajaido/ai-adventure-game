@@ -1794,13 +1794,78 @@ class StoryGenerator:
             key_parts.append(json.dumps(context, sort_keys=True, cls=DecimalEncoder))
         return hashlib.md5('|'.join(key_parts).encode()).hexdigest()
 
-    def _get_from_cache(self, base_id: str, context_type: str = 'scene') -> Optional[List[Dict]]:
-        """Try to get content from cache"""
+    # def _get_from_cache(self, base_id: str, context_type: str = 'scene') -> Optional[List[Dict]]:
+    #     """Try to get content from cache"""
+    #     try:
+    #         response = self.story_cache_table.query(
+    #             KeyConditionExpression='base_id = :bid AND context_type = :type',
+    #             ExpressionAttributeValues={
+    #                 ':bid': base_id,
+    #                 ':type': context_type
+    #             }
+    #         )
+    #         items = response.get('Items', [])
+    #         if items:
+    #             print(f"Found {len(items)} cached {context_type}s")
+    #             return items
+    #         return None
+    #     except Exception as e:
+    #         print(f"Error retrieving from cache: {str(e)}")
+    #         return None
+
+    # def _store_in_cache(self, items: List[Dict], base_id: str, context_type: str = 'scene'):
+    #     """Store content in cache"""
+    #     try:
+    #         expiry_time = int((datetime.utcnow() + timedelta(hours=24)).timestamp())
+            
+    #         with self.story_cache_table.batch_writer() as batch:
+    #             for item in items:
+    #                 cache_item = {
+    #                     'base_id': base_id,
+    #                     'context_type': context_type,
+    #                     'content': item,
+    #                     'expiry_time': expiry_time,
+    #                     'timestamp': datetime.utcnow().isoformat(),
+    #                     'cache_id': str(uuid.uuid4())
+    #                 }
+    #                 batch.put_item(Item=cache_item)
+    #         print(f"Cached {len(items)} {context_type}s successfully")
+    #     except Exception as e:
+    #         print(f"Error storing in cache: {str(e)}")
+
+    # def clean_old_cache(self):
+    #     """Remove expired cache entries"""
+    #     try:
+    #         current_time = int(datetime.utcnow().timestamp())
+            
+    #         response = self.story_cache_table.scan(
+    #             FilterExpression='expiry_time < :now',
+    #             ExpressionAttributeValues={
+    #                 ':now': current_time
+    #             }
+    #         )
+            
+    #         with self.story_cache_table.batch_writer() as batch:
+    #             for item in response.get('Items', []):
+    #                 batch.delete_item(
+    #                     Key={
+    #                         'base_id': item['base_id'],
+    #                         'cache_id': item['cache_id']
+    #                     }
+    #                 )
+            
+    #         print(f"Cleared {len(response.get('Items', []))} expired cache entries")
+    #     except Exception as e:
+    #         print(f"Error clearing cache: {str(e)}")
+    def _get_from_cache(self, base_scene_id: str, context_type: str = 'scene') -> Optional[List[Dict]]:
+        """Try to get content from cache using GSI"""
         try:
+            # Query using the GSI
             response = self.story_cache_table.query(
-                KeyConditionExpression='base_id = :bid AND context_type = :type',
+                IndexName='BaseSceneIndex',
+                KeyConditionExpression='base_scene_id = :bid AND context_type = :type',
                 ExpressionAttributeValues={
-                    ':bid': base_id,
+                    ':bid': base_scene_id,
                     ':type': context_type
                 }
             )
@@ -1813,7 +1878,7 @@ class StoryGenerator:
             print(f"Error retrieving from cache: {str(e)}")
             return None
 
-    def _store_in_cache(self, items: List[Dict], base_id: str, context_type: str = 'scene'):
+    def _store_in_cache(self, items: List[Dict], base_scene_id: str, context_type: str = 'scene'):
         """Store content in cache"""
         try:
             expiry_time = int((datetime.utcnow() + timedelta(hours=24)).timestamp())
@@ -1821,12 +1886,12 @@ class StoryGenerator:
             with self.story_cache_table.batch_writer() as batch:
                 for item in items:
                     cache_item = {
-                        'base_id': base_id,
-                        'context_type': context_type,
+                        'scene_id': str(uuid.uuid4()),  # Primary key
+                        'context_type': context_type,   # Sort key
+                        'base_scene_id': base_scene_id, # For GSI
                         'content': item,
                         'expiry_time': expiry_time,
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'cache_id': str(uuid.uuid4())
+                        'timestamp': datetime.utcnow().isoformat()
                     }
                     batch.put_item(Item=cache_item)
             print(f"Cached {len(items)} {context_type}s successfully")
@@ -1849,8 +1914,8 @@ class StoryGenerator:
                 for item in response.get('Items', []):
                     batch.delete_item(
                         Key={
-                            'base_id': item['base_id'],
-                            'cache_id': item['cache_id']
+                            'scene_id': item['scene_id'],
+                            'context_type': item['context_type']
                         }
                     )
             
