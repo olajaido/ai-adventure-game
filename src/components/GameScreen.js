@@ -659,8 +659,6 @@ function GameScreen() {
                 }
             }).response;
 
-            console.log('Raw API Response:', response);
-
             // Handle ReadableStream in the response body
             let jsonData;
             if (response.body instanceof ReadableStream) {
@@ -682,22 +680,37 @@ function GameScreen() {
             }
 
             console.log('Processed API Response:', jsonData);
-            
-            if (!jsonData || typeof jsonData !== 'object') {
-                throw new Error('Invalid response data structure');
-            }
-
             return jsonData;
         } catch (error) {
             console.error('API Error Details:', {
                 message: error.message,
                 name: error.name,
                 code: error.code || error.statusCode,
-                stack: error.stack,
-                response: error.response
+                stack: error.stack
             });
             throw error;
         }
+    }, []);
+
+    const processApiResponse = useCallback((data) => {
+        if (!data || !data.scene) {
+            throw new Error('Invalid scene data');
+        }
+
+        return {
+            scene_description: data.scene.description || 'No description available',
+            choices: Array.isArray(data.scene.choices) ? 
+                    data.scene.choices.map(choice => ({
+                        text: choice.text || choice,
+                        consequences: choice.consequences || {}
+                    })) :
+                    [{ text: 'Continue', consequences: {} }],
+            environment: {
+                items: Array.isArray(data.scene.items) ? data.scene.items : [],
+                npcs: Array.isArray(data.scene.npcs) ? data.scene.npcs : [],
+                events: Array.isArray(data.scene.events) ? data.scene.events : []
+            }
+        };
     }, []);
 
     const generateNewScene = useCallback(async () => {
@@ -705,30 +718,13 @@ function GameScreen() {
             setLoading(true);
             setError(null);
 
-            console.log('Generating new scene...');
-
             const data = await makeApiCall({
                 current_scene: 'start',
                 player_choice: null
             });
 
             console.log('New scene data received:', data);
-
-            const validatedGameState = {
-                scene_description: data?.scene_description || 
-                                 data?.currentScene || 
-                                 data?.scene || 
-                                 'Start your adventure...',
-                choices: Array.isArray(data?.choices) ? data.choices :
-                        Array.isArray(data?.options) ? data.options : 
-                        [{ text: 'Begin Adventure', consequences: {} }],
-                environment: {
-                    items: Array.isArray(data?.environment?.items) ? data.environment.items : [],
-                    npcs: Array.isArray(data?.environment?.npcs) ? data.environment.npcs : [],
-                    events: Array.isArray(data?.environment?.events) ? data.environment.events : []
-                }
-            };
-
+            const validatedGameState = processApiResponse(data);
             console.log('Validated new scene state:', validatedGameState);
 
             setGameState(validatedGameState);
@@ -743,7 +739,7 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall]);
+    }, [makeApiCall, processApiResponse]);
 
     const makeChoice = useCallback(async (choice, currentGameState) => {
         try {
@@ -757,31 +753,8 @@ function GameScreen() {
             });
 
             console.log('Choice response data:', data);
-
-            if (!data) {
-                throw new Error('No response data received');
-            }
-
-            const validatedGameState = {
-                scene_description: data?.scene_description || 
-                                 data?.currentScene || 
-                                 data?.scene || 
-                                 null,
-                choices: Array.isArray(data?.choices) ? data.choices :
-                        Array.isArray(data?.options) ? data.options : 
-                        [],
-                environment: {
-                    items: Array.isArray(data?.environment?.items) ? data.environment.items : [],
-                    npcs: Array.isArray(data?.environment?.npcs) ? data.environment.npcs : [],
-                    events: Array.isArray(data?.environment?.events) ? data.environment.events : []
-                }
-            };
-
+            const validatedGameState = processApiResponse(data);
             console.log('Validated choice game state:', validatedGameState);
-
-            if (!validatedGameState.scene_description) {
-                throw new Error('Invalid scene data received');
-            }
 
             setGameState(validatedGameState);
         } catch (error) {
@@ -794,7 +767,7 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall]);
+    }, [makeApiCall, processApiResponse]);
 
     useEffect(() => {
         generateNewScene();
@@ -830,11 +803,11 @@ function GameScreen() {
                     {gameState.choices.map((choice, index) => (
                         <button
                             key={index}
-                            onClick={() => handleChoice(typeof choice === 'string' ? choice : choice.text)}
+                            onClick={() => handleChoice(choice.text)}
                             className="choice-button"
                             disabled={loading}
                         >
-                            {typeof choice === 'string' ? choice : choice.text}
+                            {choice.text}
                         </button>
                     ))}
                 </div>
