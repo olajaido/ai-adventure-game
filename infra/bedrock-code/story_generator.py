@@ -1922,6 +1922,25 @@ class StoryGenerator:
             print(f"Cleared {len(response.get('Items', []))} expired cache entries")
         except Exception as e:
             print(f"Error clearing cache: {str(e)}")
+            
+    def debug_cache_status(self, base_scene_id: str):
+        """Debug method to check cache status"""
+        try:
+            response = self.story_cache_table.query(
+                IndexName='BaseSceneIndex',
+                KeyConditionExpression='base_scene_id = :bid',
+                ExpressionAttributeValues={
+                    ':bid': base_scene_id
+                }
+            )
+            
+            print(f"Cache query response for {base_scene_id}:")
+            print(json.dumps(response, cls=DecimalEncoder, indent=2))
+            
+            return bool(response.get('Items'))
+        except Exception as e:
+            print(f"Error checking cache status: {str(e)}")
+            return False        
 
     # API and Validation Methods
     def _bedrock_invoke_with_retry(self, prompt: str, max_tokens: int = 1000) -> dict:
@@ -2108,35 +2127,129 @@ class StoryGenerator:
         """
         return prompt
 
-    def _generate_multiple_scenes(self, current_scene: Dict, player_state: Dict, variations: int = 5) -> List[Dict]:
-        """Generate multiple scene variations in one API call"""
-        prompt = f"""Generate {variations} different possible story continuations.
-        {self.generate_story_prompt(current_scene, player_state)}
-        Return an array of {variations} complete scenes."""
+    # def _generate_multiple_scenes(self, current_scene: Dict, player_state: Dict, variations: int = 5) -> List[Dict]:
+    #     """Generate multiple scene variations in one API call"""
+    #     prompt = f"""Generate {variations} different possible story continuations.
+    #     {self.generate_story_prompt(current_scene, player_state)}
+    #     Return an array of {variations} complete scenes."""
 
-        try:
-            response = self._bedrock_invoke_with_retry(prompt, max_tokens=2000)
-            scenes = []
+    #     try:
+    #         response = self._bedrock_invoke_with_retry(prompt, max_tokens=2000)
+    #         scenes = []
             
-            if isinstance(response, dict) and 'content' in response:
-                content = response['content']
-                if isinstance(content, list) and len(content) > 0:
-                    text = content[0].get('text', '[]')
-                    try:
-                        scenes = json.loads(text)
-                        # Add metadata to each scene
-                        for scene in scenes:
-                            scene['scene_id'] = str(uuid.uuid4())
-                            scene['timestamp'] = datetime.utcnow().isoformat()
-                            if current_scene.get('scene_id'):
-                                scene['previous_scene_id'] = current_scene['scene_id']
-                    except json.JSONDecodeError as e:
-                        print(f"Failed to parse scenes: {str(e)}")
+    #         if isinstance(response, dict) and 'content' in response:
+    #             content = response['content']
+    #             if isinstance(content, list) and len(content) > 0:
+    #                 text = content[0].get('text', '[]')
+    #                 try:
+    #                     scenes = json.loads(text)
+    #                     # Add metadata to each scene
+    #                     for scene in scenes:
+    #                         scene['scene_id'] = str(uuid.uuid4())
+    #                         scene['timestamp'] = datetime.utcnow().isoformat()
+    #                         if current_scene.get('scene_id'):
+    #                             scene['previous_scene_id'] = current_scene['scene_id']
+    #                 except json.JSONDecodeError as e:
+    #                     print(f"Failed to parse scenes: {str(e)}")
             
-            return scenes if scenes else []
-        except Exception as e:
-            print(f"Error generating multiple scenes: {str(e)}")
-            return []
+    #         return scenes if scenes else []
+    #     except Exception as e:
+    #         print(f"Error generating multiple scenes: {str(e)}")
+    #         return []
+
+def _generate_multiple_scenes(self, current_scene: Dict, player_state: Dict, variations: int = 5) -> List[Dict]:
+    """Generate multiple scene variations in one API call"""
+    # First check if we can make an API call
+    if not self._wait_for_rate_limit():
+        print("Rate limited in _generate_multiple_scenes")
+        return []
+
+    prompt = f"""Generate {variations} different possible story continuations.
+    {self.generate_story_prompt(current_scene, player_state)}
+    Return an array of {variations} complete scenes."""
+
+    try:
+        response = self._bedrock_invoke_with_retry(prompt, max_tokens=2000)
+        scenes = []
+        
+        if isinstance(response, dict) and 'content' in response:
+            content = response['content']
+            if isinstance(content, list) and len(content) > 0:
+                text = content[0].get('text', '[]')
+                try:
+                    scenes = json.loads(text)
+                    # Add metadata to each scene
+                    for scene in scenes:
+                        scene['scene_id'] = str(uuid.uuid4())
+                        scene['timestamp'] = datetime.utcnow().isoformat()
+                        if current_scene.get('scene_id'):
+                            scene['previous_scene_id'] = current_scene['scene_id']
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse scenes: {str(e)}")
+        
+        return scenes if scenes else []
+    except Exception as e:
+        print(f"Error generating multiple scenes: {str(e)}")
+        return []
+
+def generate_scene(self, current_scene: Union[Dict, str, None], player_state: Dict, choice: Optional[str] = None) -> Dict:
+    """Generate a new scene with caching and rate limiting"""
+    try:
+        current_scene = self._validate_scene(current_scene)
+        player_state = self._validate_player_state(player_state)
+        
+        current_scene_id = current_scene.get('scene_id', 'initial')
+        print(f"Generating scene for scene_id: {current_scene_id}")
+        
+        # Try to get from cache first
+        cached_scenes = self._get_from_cache(current_scene_id, 'scene')
+        if cached_scenes:
+            print(f"Found {len(cached_scenes)} cached scenes")
+            if choice:
+                # Try to find a scene matching the player's choice
+                matching_scenes = [s['content'] for s in cached_scenes 
+                                 if any(c.get('text', '').lower() == choice.lower() 
+                                       for c in s.get('content', {}).get('choices', []))]
+                if matching_scenes:
+                    print("Found matching scene for choice")
+                    return random.choice(matching_scenes)
+            
+            # If no matching choice or no choice provided, return random scene
+            print("Returning random cached scene")
+            return random.choice(cached_scenes)['content']
+        
+        print("No cached scenes found, generating new scenes")
+        
+        # Check rate limit before generating new scenes
+        if not self._wait_for_rate_limit():
+            print("Rate limited, returning fallback scene")
+            return self._generate_fallback_scene()
+        
+        # Generate multiple scenes
+        new_scenes = self._generate_multiple_scenes(current_scene, player_state)
+        if new_scenes:
+            # Store in cache
+            print(f"Generated {len(new_scenes)} new scenes, storing in cache")
+            self._store_in_cache(new_scenes, current_scene_id, 'scene')
+            
+            # Return appropriate scene
+            if choice:
+                matching_scenes = [s for s in new_scenes 
+                                 if any(c.get('text', '').lower() == choice.lower() 
+                                       for c in s.get('choices', []))]
+                if matching_scenes:
+                    print("Returning matching scene from new scenes")
+                    return random.choice(matching_scenes)
+            
+            print("Returning random new scene")
+            return random.choice(new_scenes)
+        
+        print("No scenes generated, returning fallback")
+        return self._generate_fallback_scene()
+            
+    except Exception as e:
+        print(f"Error in scene generation: {str(e)}")
+        return self._generate_fallback_scene()
 
     def generate_scene(self, current_scene: Union[Dict, str, None], player_state: Dict, choice: Optional[str] = None) -> Dict:
         """Generate a new scene with caching and rate limiting"""
