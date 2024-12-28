@@ -848,6 +848,242 @@
 
 // export default GameScreen;
 
+// working before updating the code with cache and dynamoDB
+
+// import React, { useState, useEffect, useCallback } from 'react';
+// import { post } from 'aws-amplify/api';
+// import { fetchAuthSession } from '@aws-amplify/auth';
+// import '../styles/GameScreen.css';
+
+// function GameScreen() {
+//     const [gameState, setGameState] = useState({
+//         scene_description: "Beginning your adventure...",
+//         scene_id: null,
+//         choices: [],
+//         environment: {
+//             items: [],
+//             npcs: [],
+//             events: []
+//         }
+//     });
+//     const [loading, setLoading] = useState(true);
+//     const [error, setError] = useState(null);
+
+//     const makeApiCall = useCallback(async (body) => {
+//         try {
+//             const session = await fetchAuthSession();
+//             const idToken = session.tokens?.idToken?.toString();
+            
+//             if (!idToken) {
+//                 throw new Error('Authentication required');
+//             }
+
+//             const response = await post({
+//                 apiName: 'gameApi',
+//                 path: '/generate-story',
+//                 options: {
+//                     headers: {
+//                         Authorization: `Bearer ${idToken}`
+//                     },
+//                     body: body
+//                 }
+//             }).response;
+
+//             // Handle ReadableStream in the response body
+//             let jsonData;
+//             if (response.body instanceof ReadableStream) {
+//                 const reader = response.body.getReader();
+//                 let result = '';
+//                 while (true) {
+//                     const { done, value } = await reader.read();
+//                     if (done) break;
+//                     result += new TextDecoder().decode(value);
+//                 }
+//                 try {
+//                     jsonData = JSON.parse(result);
+//                 } catch (e) {
+//                     console.error('Failed to parse response:', e);
+//                     throw new Error('Invalid response format');
+//                 }
+//             } else {
+//                 jsonData = response.body;
+//             }
+
+//             if (!jsonData || !jsonData.scene) {
+//                 throw new Error('Invalid response structure');
+//             }
+
+//             return jsonData;
+//         } catch (error) {
+//             console.error('API Error Details:', {
+//                 message: error.message,
+//                 name: error.name,
+//                 code: error.code || error.statusCode,
+//                 stack: error.stack
+//             });
+//             throw error;
+//         }
+//     }, []);
+
+//     const processApiResponse = useCallback((data) => {
+//         if (!data || !data.scene) {
+//             throw new Error('Invalid scene data');
+//         }
+
+//         return {
+//             scene_description: data.scene.scene_description || 'No description available',
+//             scene_id: data.scene.scene_id,
+//             choices: Array.isArray(data.scene.choices) ? 
+//                     data.scene.choices.map(choice => {
+//                         return {
+//                             text: choice.text || choice,
+//                             consequences: choice.consequences || {}
+//                         };
+//                     }) :
+//                     [{ text: 'Continue', consequences: {} }],
+//             environment: {
+//                 items: Array.isArray(data.scene.environment?.items) ? data.scene.environment.items : [],
+//                 npcs: Array.isArray(data.scene.environment?.npcs) ? data.scene.environment.npcs : [],
+//                 events: Array.isArray(data.scene.environment?.events) ? data.scene.environment.events : []
+//             }
+//         };
+//     }, []);
+
+//     const generateNewScene = useCallback(async () => {
+//         try {
+//             setLoading(true);
+//             setError(null);
+
+//             const data = await makeApiCall({
+//                 current_scene: 'start',
+//                 player_choice: null
+//             });
+
+//             const validatedGameState = processApiResponse(data);
+//             setGameState(validatedGameState);
+//         } catch (error) {
+//             console.error('Scene Generation Error:', error);
+//             setError(error);
+//             setGameState(prev => ({
+//                 ...prev,
+//                 scene_description: error.message || 'An error occurred. Please try again.',
+//                 choices: [{ text: 'Retry', consequences: {} }]
+//             }));
+//         } finally {
+//             setLoading(false);
+//         }
+//     }, [makeApiCall, processApiResponse]);
+
+//     const makeChoice = useCallback(async (choice, currentGameState) => {
+//         try {
+//             setLoading(true);
+//             setError(null);
+
+//             const data = await makeApiCall({
+//                 current_scene: currentGameState.scene_id,
+//                 player_choice: choice
+//             });
+
+//             const validatedGameState = processApiResponse(data);
+            
+//             // Check if we're getting a meaningfully different scene
+//             if (validatedGameState.scene_description === currentGameState.scene_description) {
+//                 setLoading(false);
+//                 return; // Don't update state with the same content
+//             }
+
+//             setGameState(validatedGameState);
+//         } catch (error) {
+//             console.error('Choice Processing Error:', error);
+//             setError(error);
+//             setGameState(prev => ({
+//                 ...prev,
+//                 choices: [{ text: 'Retry', consequences: {} }]
+//             }));
+//         } finally {
+//             setLoading(false);
+//         }
+//     }, [makeApiCall, processApiResponse]);
+
+//     useEffect(() => {
+//         generateNewScene();
+//     }, [generateNewScene]);
+
+//     const handleChoice = useCallback((choice) => {
+//         makeChoice(choice, gameState);
+//     }, [makeChoice, gameState]);
+
+//     if (loading) {
+//         return <div className="loading">Loading your adventure...</div>;
+//     }
+
+//     if (error) {
+//         return (
+//             <div className="error-container">
+//                 <h2>An Error Occurred</h2>
+//                 <p>{error.message || 'Unable to load the game. Please try again later.'}</p>
+//                 <button onClick={generateNewScene} className="retry-button">
+//                     Retry
+//                 </button>
+//             </div>
+//         );
+//     }
+
+//     return (
+//         <div className="game-screen">
+//             <div className="scene-container">
+//                 <div className="scene-description">
+//                     <p>{gameState.scene_description}</p>
+//                 </div>
+//                 <div className="choices">
+//                     {gameState.choices.map((choice, index) => (
+//                         <button
+//                             key={index}
+//                             onClick={() => handleChoice(choice.text)}
+//                             className="choice-button"
+//                             disabled={loading}
+//                         >
+//                             {choice.text}
+//                         </button>
+//                     ))}
+//                 </div>
+//             </div>
+//             {gameState.environment.items?.length > 0 && (
+//                 <div className="environment-items">
+//                     <h3>Items in the Environment:</h3>
+//                     {gameState.environment.items.map((item, index) => (
+//                         <div key={index} className="environment-item">
+//                             {typeof item === 'string' ? item : item.name}
+//                         </div>
+//                     ))}
+//                 </div>
+//             )}
+//             {gameState.environment.npcs?.length > 0 && (
+//                 <div className="environment-npcs">
+//                     <h3>Characters Present:</h3>
+//                     {gameState.environment.npcs.map((npc, index) => (
+//                         <div key={index} className="environment-npc">
+//                             {typeof npc === 'string' ? npc : npc.name}
+//                         </div>
+//                     ))}
+//                 </div>
+//             )}
+//             {gameState.environment.events?.length > 0 && (
+//                 <div className="environment-events">
+//                     <h3>Current Events:</h3>
+//                     {gameState.environment.events.map((event, index) => (
+//                         <div key={index} className="environment-event">
+//                             {typeof event === 'string' ? event : event.description}
+//                         </div>
+//                     ))}
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+// export default GameScreen;
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { post } from 'aws-amplify/api';
 import { fetchAuthSession } from '@aws-amplify/auth';
@@ -883,11 +1119,10 @@ function GameScreen() {
                     headers: {
                         Authorization: `Bearer ${idToken}`
                     },
-                    body: body
+                    body
                 }
             }).response;
 
-            // Handle ReadableStream in the response body
             let jsonData;
             if (response.body instanceof ReadableStream) {
                 const reader = response.body.getReader();
@@ -907,13 +1142,10 @@ function GameScreen() {
                 jsonData = response.body;
             }
 
-            if (!jsonData || !jsonData.scene) {
-                throw new Error('Invalid response structure');
-            }
-
+            // The response could be either a direct API response or cached data
             return jsonData;
         } catch (error) {
-            console.error('API Error Details:', {
+            console.error('API Call Error:', {
                 message: error.message,
                 name: error.name,
                 code: error.code || error.statusCode,
@@ -923,26 +1155,22 @@ function GameScreen() {
         }
     }, []);
 
-    const processApiResponse = useCallback((data) => {
-        if (!data || !data.scene) {
-            throw new Error('Invalid scene data');
-        }
-
+    const processSceneData = useCallback((data) => {
+        // Handle both direct API responses and cached responses
+        const sceneData = data.scene || data;
+        
         return {
-            scene_description: data.scene.scene_description || 'No description available',
-            scene_id: data.scene.scene_id,
-            choices: Array.isArray(data.scene.choices) ? 
-                    data.scene.choices.map(choice => {
-                        return {
-                            text: choice.text || choice,
-                            consequences: choice.consequences || {}
-                        };
-                    }) :
-                    [{ text: 'Continue', consequences: {} }],
+            scene_description: sceneData.scene_description,
+            scene_id: sceneData.scene_id,
+            choices: Array.isArray(sceneData.choices) ? 
+                sceneData.choices.map(choice => ({
+                    text: typeof choice === 'string' ? choice : choice.text,
+                    consequences: choice.consequences || {}
+                })) : [],
             environment: {
-                items: Array.isArray(data.scene.environment?.items) ? data.scene.environment.items : [],
-                npcs: Array.isArray(data.scene.environment?.npcs) ? data.scene.environment.npcs : [],
-                events: Array.isArray(data.scene.environment?.events) ? data.scene.environment.events : []
+                items: Array.isArray(sceneData.environment?.items) ? sceneData.environment.items : [],
+                npcs: Array.isArray(sceneData.environment?.npcs) ? sceneData.environment.npcs : [],
+                events: Array.isArray(sceneData.environment?.events) ? sceneData.environment.events : []
             }
         };
     }, []);
@@ -957,7 +1185,7 @@ function GameScreen() {
                 player_choice: null
             });
 
-            const validatedGameState = processApiResponse(data);
+            const validatedGameState = processSceneData(data);
             setGameState(validatedGameState);
         } catch (error) {
             console.error('Scene Generation Error:', error);
@@ -970,7 +1198,7 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall, processApiResponse]);
+    }, [makeApiCall, processSceneData]);
 
     const makeChoice = useCallback(async (choice, currentGameState) => {
         try {
@@ -982,15 +1210,15 @@ function GameScreen() {
                 player_choice: choice
             });
 
-            const validatedGameState = processApiResponse(data);
+            // Process the response, which could be from cache
+            const validatedGameState = processSceneData(data);
             
-            // Check if we're getting a meaningfully different scene
-            if (validatedGameState.scene_description === currentGameState.scene_description) {
-                setLoading(false);
-                return; // Don't update state with the same content
+            // Only update if we got a valid scene
+            if (validatedGameState.scene_description && validatedGameState.scene_id) {
+                setGameState(validatedGameState);
+            } else {
+                throw new Error('Invalid scene data received');
             }
-
-            setGameState(validatedGameState);
         } catch (error) {
             console.error('Choice Processing Error:', error);
             setError(error);
@@ -1001,7 +1229,7 @@ function GameScreen() {
         } finally {
             setLoading(false);
         }
-    }, [makeApiCall, processApiResponse]);
+    }, [makeApiCall, processSceneData]);
 
     useEffect(() => {
         generateNewScene();
