@@ -1105,6 +1105,7 @@ function GameScreen() {
 
     const makeApiCall = useCallback(async (body) => {
         try {
+            console.log('Starting API call with body:', body);
             const session = await fetchAuthSession();
             const idToken = session.tokens?.idToken?.toString();
             
@@ -1112,6 +1113,7 @@ function GameScreen() {
                 throw new Error('Authentication required');
             }
 
+            console.log('Making request to /generate-story');
             const response = await post({
                 apiName: 'gameApi',
                 path: '/generate-story',
@@ -1123,8 +1125,11 @@ function GameScreen() {
                 }
             }).response;
 
+            console.log('Raw response:', response);
+
             let jsonData;
             if (response.body instanceof ReadableStream) {
+                console.log('Processing ReadableStream response');
                 const reader = response.body.getReader();
                 let result = '';
                 while (true) {
@@ -1139,27 +1144,32 @@ function GameScreen() {
                     throw new Error('Invalid response format');
                 }
             } else {
+                console.log('Response is not a ReadableStream:', response.body);
                 jsonData = response.body;
             }
 
-            // The response could be either a direct API response or cached data
+            console.log('Processed response data:', jsonData);
             return jsonData;
         } catch (error) {
-            console.error('API Call Error:', {
+            console.error('Detailed API Call Error:', {
                 message: error.message,
                 name: error.name,
                 code: error.code || error.statusCode,
-                stack: error.stack
+                stack: error.stack,
+                response: error.response
             });
             throw error;
         }
     }, []);
 
     const processSceneData = useCallback((data) => {
+        console.log('Processing scene data:', data);
+        
         // Handle both direct API responses and cached responses
         const sceneData = data.scene || data;
+        console.log('Extracted scene data:', sceneData);
         
-        return {
+        const processed = {
             scene_description: sceneData.scene_description,
             scene_id: sceneData.scene_id,
             choices: Array.isArray(sceneData.choices) ? 
@@ -1173,10 +1183,14 @@ function GameScreen() {
                 events: Array.isArray(sceneData.environment?.events) ? sceneData.environment.events : []
             }
         };
+
+        console.log('Processed scene data:', processed);
+        return processed;
     }, []);
 
     const generateNewScene = useCallback(async () => {
         try {
+            console.log('Generating new scene');
             setLoading(true);
             setError(null);
 
@@ -1185,7 +1199,10 @@ function GameScreen() {
                 player_choice: null
             });
 
+            console.log('Received initial scene data:', data);
             const validatedGameState = processSceneData(data);
+            console.log('Setting initial game state:', validatedGameState);
+            
             setGameState(validatedGameState);
         } catch (error) {
             console.error('Scene Generation Error:', error);
@@ -1202,25 +1219,45 @@ function GameScreen() {
 
     const makeChoice = useCallback(async (choice, currentGameState) => {
         try {
+            console.log('makeChoice called with:', { choice, currentGameState });
             setLoading(true);
             setError(null);
 
-            const data = await makeApiCall({
+            const payload = {
                 current_scene: currentGameState.scene_id,
                 player_choice: choice
-            });
+            };
+            console.log('Sending choice payload:', payload);
+
+            const data = await makeApiCall(payload);
+            console.log('Received choice response:', data);
+
+            // Check if we have a valid response
+            if (!data || (!data.scene && !data.scene_description)) {
+                console.error('Invalid response structure:', data);
+                throw new Error('Invalid response from server');
+            }
 
             // Process the response, which could be from cache
             const validatedGameState = processSceneData(data);
-            
+            console.log('Processed game state:', validatedGameState);
+
             // Only update if we got a valid scene
             if (validatedGameState.scene_description && validatedGameState.scene_id) {
+                console.log('Updating game state with:', validatedGameState);
                 setGameState(validatedGameState);
             } else {
+                console.error('Invalid scene data:', validatedGameState);
                 throw new Error('Invalid scene data received');
             }
         } catch (error) {
-            console.error('Choice Processing Error:', error);
+            console.error('Detailed Choice Processing Error:', {
+                error,
+                message: error.message,
+                name: error.name,
+                code: error.code,
+                stack: error.stack
+            });
             setError(error);
             setGameState(prev => ({
                 ...prev,
@@ -1236,6 +1273,7 @@ function GameScreen() {
     }, [generateNewScene]);
 
     const handleChoice = useCallback((choice) => {
+        console.log('handleChoice called with:', choice);
         makeChoice(choice, gameState);
     }, [makeChoice, gameState]);
 
