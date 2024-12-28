@@ -472,8 +472,8 @@
 // export default Profile;
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCurrentUser, signOut as amplifySignOut } from '@aws-amplify/auth';
 import { get } from 'aws-amplify/api';
+import { fetchAuthSession, getCurrentUser } from '@aws-amplify/auth';
 import '../styles/Profile.css';
 
 function Profile({ signOut: externalSignOut }) {
@@ -487,25 +487,48 @@ function Profile({ signOut: externalSignOut }) {
             setLoading(true);
             setError(null);
 
+            // Get current user and auth session
             const currentUser = await getCurrentUser();
-            
-            if (!currentUser) {
-                throw new Error('No user found');
+            const session = await fetchAuthSession();
+            const idToken = session.tokens?.idToken?.toString();
+
+            if (!idToken) {
+                throw new Error('Authentication required');
             }
 
-            const requestConfig = {
+            const response = await get({
                 apiName: 'gameApi',
                 path: `/user-stats/${currentUser.userId}`,
-                options: {}
-            };
+                options: {
+                    headers: {
+                        Authorization: `Bearer ${idToken}`
+                    }
+                }
+            }).response;
 
-            const { body } = await get(requestConfig);
-            
-            let userStats = body;
-            if (typeof body === 'string') {
-                userStats = JSON.parse(body);
+            // Handle ReadableStream in the response body
+            let jsonData;
+            if (response.body instanceof ReadableStream) {
+                const reader = response.body.getReader();
+                let result = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    result += new TextDecoder().decode(value);
+                }
+                try {
+                    jsonData = JSON.parse(result);
+                } catch (e) {
+                    console.error('Failed to parse response:', e);
+                    throw new Error('Invalid response format');
+                }
+            } else {
+                jsonData = response.body;
             }
 
+            console.log('Profile Response:', jsonData);
+
+            // Set user data
             setUser({
                 id: currentUser.userId,
                 username: currentUser.username,
@@ -514,32 +537,28 @@ function Profile({ signOut: externalSignOut }) {
                 }
             });
 
-            // Validate and set stats with defaults
+            // Set stats with default values if data is missing
             setStats({
-                gamesPlayed: userStats.gamesPlayed || 0,
-                highestLevel: userStats.highestLevel || 1,
-                itemsCollected: userStats.itemsCollected || 0,
-                achievements: Array.isArray(userStats.achievements) 
-                    ? userStats.achievements.map(achievement => ({
-                        name: achievement.name || 'Unnamed Achievement',
+                gamesPlayed: jsonData?.stats?.gamesPlayed || 0,
+                highestLevel: jsonData?.stats?.highestLevel || 1,
+                itemsCollected: jsonData?.stats?.itemsCollected || 0,
+                experience: jsonData?.stats?.experience || 0,
+                level: jsonData?.stats?.level || 1,
+                rank: jsonData?.stats?.rank || 'Novice Adventurer',
+                playTime: jsonData?.stats?.playTime || 0,
+                achievements: Array.isArray(jsonData?.stats?.achievements) 
+                    ? jsonData.stats.achievements.map(achievement => ({
+                        name: achievement.name || 'Unknown Achievement',
                         description: achievement.description || 'No description available',
                         icon: achievement.icon || '🏆',
                         dateEarned: achievement.dateEarned || null,
                         progress: achievement.progress || 100
                     }))
-                    : [],
-                experience: userStats.experience || 0,
-                level: userStats.level || 1,
-                rank: userStats.rank || 'Novice Adventurer',
-                playTime: userStats.playTime || 0,
-                lastPlayed: userStats.lastPlayed || null
+                    : []
             });
+
         } catch (error) {
-            console.error('Profile Load Error:', {
-                message: error.message,
-                name: error.name,
-                code: error.code
-            });
+            console.error('Profile Load Error:', error);
             setError(error);
         } finally {
             setLoading(false);
@@ -552,10 +571,7 @@ function Profile({ signOut: externalSignOut }) {
 
     const handleSignOut = async () => {
         try {
-            await amplifySignOut();
-            if (externalSignOut) {
-                await externalSignOut();
-            }
+            await externalSignOut();
         } catch (error) {
             console.error('Sign Out Error:', error);
         }
@@ -569,7 +585,7 @@ function Profile({ signOut: externalSignOut }) {
         return (
             <div className="error-container">
                 <h2>An Error Occurred</h2>
-                <p>Unable to load profile. Please try again.</p>
+                <p>{error.message || 'Unable to load profile. Please try again.'}</p>
                 <button onClick={loadUserProfile} className="retry-button">
                     Retry
                 </button>
@@ -613,20 +629,11 @@ function Profile({ signOut: externalSignOut }) {
                             <span className="stat-label">Items Collected</span>
                             <span className="stat-value">{stats?.itemsCollected || 0}</span>
                         </div>
-                        <div className="stat-item">
-                            <span className="stat-label">Play Time</span>
-                            <span className="stat-value">
-                                {stats?.playTime 
-                                    ? `${Math.floor(stats.playTime / 60)}h ${stats.playTime % 60}m`
-                                    : '0h 0m'
-                                }
-                            </span>
-                        </div>
-                        {stats?.lastPlayed && (
+                        {stats?.playTime !== undefined && (
                             <div className="stat-item">
-                                <span className="stat-label">Last Played</span>
+                                <span className="stat-label">Play Time</span>
                                 <span className="stat-value">
-                                    {new Date(stats.lastPlayed).toLocaleDateString()}
+                                    {`${Math.floor(stats.playTime / 60)}h ${stats.playTime % 60}m`}
                                 </span>
                             </div>
                         )}
@@ -677,4 +684,3 @@ function Profile({ signOut: externalSignOut }) {
 }
 
 export default Profile;
-

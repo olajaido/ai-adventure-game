@@ -876,8 +876,6 @@ function GameScreen() {
                 throw new Error('Authentication required');
             }
 
-            console.log('Making API call with body:', body);
-
             const response = await post({
                 apiName: 'gameApi',
                 path: '/generate-story',
@@ -902,15 +900,13 @@ function GameScreen() {
                 try {
                     jsonData = JSON.parse(result);
                 } catch (e) {
-                    console.error('Failed to parse response stream:', e);
+                    console.error('Failed to parse response:', e);
                     throw new Error('Invalid response format');
                 }
             } else {
                 jsonData = response.body;
             }
 
-            console.log('Raw API Response:', jsonData);
-            
             if (!jsonData || !jsonData.scene) {
                 throw new Error('Invalid response structure');
             }
@@ -932,24 +928,21 @@ function GameScreen() {
             throw new Error('Invalid scene data');
         }
 
-        console.log('Processing scene data:', data.scene);
-
         return {
             scene_description: data.scene.scene_description || 'No description available',
             scene_id: data.scene.scene_id,
             choices: Array.isArray(data.scene.choices) ? 
                     data.scene.choices.map(choice => {
-                        console.log('Processing choice:', choice);
                         return {
                             text: choice.text || choice,
                             consequences: choice.consequences || {}
                         };
                     }) :
                     [{ text: 'Continue', consequences: {} }],
-            environment: data.scene.environment || {
-                items: [],
-                npcs: [],
-                events: []
+            environment: {
+                items: Array.isArray(data.scene.environment?.items) ? data.scene.environment.items : [],
+                npcs: Array.isArray(data.scene.environment?.npcs) ? data.scene.environment.npcs : [],
+                events: Array.isArray(data.scene.environment?.events) ? data.scene.environment.events : []
             }
         };
     }, []);
@@ -964,10 +957,7 @@ function GameScreen() {
                 player_choice: null
             });
 
-            console.log('Initial scene data:', data);
             const validatedGameState = processApiResponse(data);
-            console.log('Validated initial state:', validatedGameState);
-
             setGameState(validatedGameState);
         } catch (error) {
             console.error('Scene Generation Error:', error);
@@ -984,25 +974,20 @@ function GameScreen() {
 
     const makeChoice = useCallback(async (choice, currentGameState) => {
         try {
-            console.log('Making choice:', {
-                choice,
-                currentScene: currentGameState.scene_id,
-                currentDescription: currentGameState.scene_description
-            });
             setLoading(true);
             setError(null);
 
             const data = await makeApiCall({
-                current_scene: currentGameState.scene_id || 'start',
+                current_scene: currentGameState.scene_id,
                 player_choice: choice
             });
 
-            console.log('Choice response:', data);
             const validatedGameState = processApiResponse(data);
-            console.log('Validated choice state:', validatedGameState);
-
-            if (validatedGameState.scene_id === currentGameState.scene_id) {
-                console.warn('Received same scene ID as current scene');
+            
+            // Check if we're getting a meaningfully different scene
+            if (validatedGameState.scene_description === currentGameState.scene_description) {
+                setLoading(false);
+                return; // Don't update state with the same content
             }
 
             setGameState(validatedGameState);
@@ -1096,4 +1081,3 @@ function GameScreen() {
 }
 
 export default GameScreen;
-
