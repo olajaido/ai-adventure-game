@@ -909,7 +909,12 @@ function GameScreen() {
                 jsonData = response.body;
             }
 
-            console.log('Processed API Response:', jsonData);
+            console.log('Raw API Response:', jsonData);
+            
+            if (!jsonData || !jsonData.scene) {
+                throw new Error('Invalid response structure');
+            }
+
             return jsonData;
         } catch (error) {
             console.error('API Error Details:', {
@@ -927,14 +932,19 @@ function GameScreen() {
             throw new Error('Invalid scene data');
         }
 
+        console.log('Processing scene data:', data.scene);
+
         return {
             scene_description: data.scene.scene_description || 'No description available',
             scene_id: data.scene.scene_id,
             choices: Array.isArray(data.scene.choices) ? 
-                    data.scene.choices.map(choice => ({
-                        text: choice.text || choice,
-                        consequences: choice.consequences || {}
-                    })) :
+                    data.scene.choices.map(choice => {
+                        console.log('Processing choice:', choice);
+                        return {
+                            text: choice.text || choice,
+                            consequences: choice.consequences || {}
+                        };
+                    }) :
                     [{ text: 'Continue', consequences: {} }],
             environment: data.scene.environment || {
                 items: [],
@@ -954,9 +964,9 @@ function GameScreen() {
                 player_choice: null
             });
 
-            console.log('New scene data received:', data);
+            console.log('Initial scene data:', data);
             const validatedGameState = processApiResponse(data);
-            console.log('Validated new scene state:', validatedGameState);
+            console.log('Validated initial state:', validatedGameState);
 
             setGameState(validatedGameState);
         } catch (error) {
@@ -974,18 +984,26 @@ function GameScreen() {
 
     const makeChoice = useCallback(async (choice, currentGameState) => {
         try {
-            console.log('Making choice with:', { choice, currentGameState });
+            console.log('Making choice:', {
+                choice,
+                currentScene: currentGameState.scene_id,
+                currentDescription: currentGameState.scene_description
+            });
             setLoading(true);
             setError(null);
 
             const data = await makeApiCall({
-                current_scene: currentGameState.scene_id,  // Use scene_id instead of description
+                current_scene: currentGameState.scene_id || 'start',
                 player_choice: choice
             });
 
-            console.log('Choice response data:', data);
+            console.log('Choice response:', data);
             const validatedGameState = processApiResponse(data);
-            console.log('Validated choice game state:', validatedGameState);
+            console.log('Validated choice state:', validatedGameState);
+
+            if (validatedGameState.scene_id === currentGameState.scene_id) {
+                console.warn('Received same scene ID as current scene');
+            }
 
             setGameState(validatedGameState);
         } catch (error) {

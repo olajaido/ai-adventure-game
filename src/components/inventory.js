@@ -198,47 +198,57 @@ function Inventory() {
             const idToken = session.tokens?.idToken?.toString();
             
             if (!idToken) {
-                throw new Error('No authentication token available');
+                throw new Error('Authentication required');
             }
 
-            const requestConfig = {
+            const response = await get({
                 apiName: 'gameApi',
                 path: '/inventory',
-                options: {}
-            };
+                options: {
+                    headers: {
+                        Authorization: `Bearer ${idToken}`
+                    }
+                }
+            }).response;
 
-            const { body } = await get(requestConfig);
-            
-            let data = body;
-            if (typeof body === 'string') {
-                data = JSON.parse(body);
+            // Handle ReadableStream in the response body
+            let jsonData;
+            if (response.body instanceof ReadableStream) {
+                const reader = response.body.getReader();
+                let result = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    result += new TextDecoder().decode(value);
+                }
+                try {
+                    jsonData = JSON.parse(result);
+                } catch (e) {
+                    console.error('Failed to parse response:', e);
+                    throw new Error('Invalid response format');
+                }
+            } else {
+                jsonData = response.body;
             }
 
-            // Handle different response formats
-            const items = Array.isArray(data.items) ? data.items :
-                         Array.isArray(data.inventory) ? data.inventory :
-                         Array.isArray(data) ? data : [];
+            console.log('Inventory Response:', jsonData);
 
-            // Validate and transform items
-            const validatedItems = items.map(item => {
-                if (typeof item === 'string') {
-                    return {
-                        name: item,
-                        description: 'No description available',
-                        icon: '📦'
-                    };
-                }
-                return {
-                    name: item.name || 'Unnamed Item',
-                    description: item.description || 'No description available',
-                    icon: item.icon || '📦',
-                    quantity: item.quantity || 1,
-                    type: item.type || 'misc',
-                    properties: item.properties || {}
-                };
-            });
+            // Process inventory data
+            const inventoryItems = Array.isArray(jsonData?.inventory) ? 
+                jsonData.inventory : [];
+
+            // Transform and validate each item
+            const validatedItems = inventoryItems.map(item => ({
+                id: item.id || Math.random().toString(36).substr(2, 9),
+                name: item.name || 'Unknown Item',
+                description: item.description || 'No description available',
+                quantity: item.quantity || 1,
+                icon: item.icon || '📦',
+                type: item.type || 'misc'
+            }));
 
             setInventory(validatedItems);
+            
         } catch (error) {
             console.error('Inventory Load Error:', {
                 message: error.message,
@@ -263,7 +273,7 @@ function Inventory() {
         return (
             <div className="error-container">
                 <h2>An Error Occurred</h2>
-                <p>Unable to load inventory. Please try again.</p>
+                <p>{error.message || 'Unable to load inventory. Please try again.'}</p>
                 <button onClick={loadInventory} className="retry-button">
                     Retry
                 </button>
@@ -274,35 +284,23 @@ function Inventory() {
     return (
         <div className="inventory">
             <h2>Your Inventory</h2>
-            
             {inventory.length === 0 ? (
                 <div className="empty-inventory">
                     Your inventory is empty. Explore the world to find items!
                 </div>
             ) : (
                 <div className="inventory-grid">
-                    {inventory.map((item, index) => (
-                        <div key={index} className="inventory-item">
+                    {inventory.map((item) => (
+                        <div key={item.id} className="inventory-item">
                             <div className="item-header">
-                                <div className="item-icon">{item.icon}</div>
-                                <div className="item-name">{item.name}</div>
+                                <span className="item-icon">{item.icon}</span>
+                                <span className="item-name">{item.name}</span>
                                 {item.quantity > 1 && (
-                                    <div className="item-quantity">x{item.quantity}</div>
+                                    <span className="item-quantity">x{item.quantity}</span>
                                 )}
                             </div>
-                            <div className="item-description">{item.description}</div>
-                            {item.type && (
-                                <div className="item-type">Type: {item.type}</div>
-                            )}
-                            {Object.keys(item.properties || {}).length > 0 && (
-                                <div className="item-properties">
-                                    {Object.entries(item.properties).map(([key, value]) => (
-                                        <div key={key} className="item-property">
-                                            {key}: {value}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                            <p className="item-description">{item.description}</p>
+                            <div className="item-type">{item.type}</div>
                         </div>
                     ))}
                 </div>
@@ -312,4 +310,3 @@ function Inventory() {
 }
 
 export default Inventory;
-
