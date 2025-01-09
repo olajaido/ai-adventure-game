@@ -6,7 +6,6 @@ env:
   AWS_BACKEND_BUCKET: aws-demo-game-terraform-state
   TF_VERSION: "1.5.0"
 
-# Only trigger manually through GitHub UI
 on:
   workflow_dispatch:
     inputs:
@@ -26,7 +25,7 @@ jobs:
   terraform-destroy:
     name: Destroy Infrastructure
     runs-on: ubuntu-latest
-    if: github.event.inputs.confirmation == 'DESTROY'
+    if: github.event.inputs.confirmation == 'DESTROY' && github.event.inputs.environment == 'dev'
     defaults:
       run:
         working-directory: ./infra
@@ -47,14 +46,10 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config="bucket=${{ env.AWS_BACKEND_BUCKET }}"
         env:
           AWS_BUCKET_NAME: ${{ env.AWS_BACKEND_BUCKET }}
 
-      - name: Terraform Destroy Plan
-        run: terraform plan -destroy -out=tfdestroyplan
         
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
-        env:
-          TF_VAR_environment: ${{ github.event.inputs.environment }}
